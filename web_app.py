@@ -421,11 +421,12 @@ def poll_video_task(task_id: str):
     try:
         task = gen.query_task(task_id)
         status = task.status.lower()
-        if status in ("succeeded", "success", "finished", "done"):
+        status_lower = status.lower()
+        if status_lower in ("succeeded", "success", "finished", "done", "complete", "completed"):
             status = "completed"
-        elif status in ("running", "processing", "pending"):
+        elif status_lower in ("running", "processing", "pending", "generating", "rendering", "in_progress"):
             status = "in_progress"
-        elif status in ("error", "cancelled", "canceled"):
+        elif status_lower in ("error", "failed", "failure", "cancelled", "canceled", "rejected", "timeout"):
             status = "failed"
 
         result_url = task.video_url or ""
@@ -484,7 +485,29 @@ def cancel_video_task(task_id: str):
 
 def _poll_single_task(task_id: str, gen: VideoGenerator, now: float) -> dict:
     """Poll a single video task. Called from the thread pool for parallel execution."""
-    # ── Timeout detection ──
+    # ── Retry with exponential backoff on transient errors ──
+    last_exc = None
+    for attempt in range(3):
+        try:
+            return _do_poll_single_task(task_id, gen, now)
+        except Exception as exc:
+            last_exc = exc
+            if attempt < 2:
+                wait = (attempt + 1) * 2  # 2s, 4s
+                LOGGER.warning("Poll attempt %d/3 failed for %s: %s, retrying in %ds",
+                               attempt + 1, task_id, exc, wait)
+                import time as _time
+                _time.sleep(wait)
+    # All retries exhausted
+    return {
+        "task_id": task_id, "status": "poll_error", "progress": 0,
+        "video_url": "", "completed_at": "", "error": str(last_exc),
+        "newly_completed": False, "newly_failed": False,
+    }
+
+
+def _do_poll_single_task(task_id: str, gen: VideoGenerator, now: float) -> dict:
+    """Core polling logic with timeout detection."""
     with _poll_lock:
         meta = _task_poll_meta.get(task_id)
     if meta:
@@ -527,11 +550,12 @@ def _poll_single_task(task_id: str, gen: VideoGenerator, now: float) -> dict:
     try:
         task = gen.query_task(task_id)
         status = task.status.lower()
-        if status in ("succeeded", "success", "finished", "done"):
+        status_lower = status.lower()
+        if status_lower in ("succeeded", "success", "finished", "done", "complete", "completed"):
             status = "completed"
-        elif status in ("running", "processing", "pending"):
+        elif status_lower in ("running", "processing", "pending", "generating", "rendering", "in_progress"):
             status = "in_progress"
-        elif status in ("error", "cancelled", "canceled"):
+        elif status_lower in ("error", "failed", "failure", "cancelled", "canceled", "rejected", "timeout"):
             status = "failed"
 
         result_url = task.video_url or ""
@@ -1247,6 +1271,46 @@ async def websocket_video_tasks(websocket: WebSocket):
         LOGGER.info("WebSocket client disconnected (total: %d)", len(_ws_connections))
 
 
+
+# ─────────────── 日志接口 ───────────────
+
+@app.get("/api/logs")
+def get_logs(tail: int = 200, keyword: str = ""):
+    """读取最新日志（默认最近200行），支持关键词过滤。"""
+    from utils.path_utils import LOGS_DIR
+    log_file = LOGS_DIR / "app.log"
+    if not log_file.exists():
+        return {"lines": [], "total": 0, "keyword": keyword, "tail": tail}
+
+    try:
+        lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception as exc:
+        return {"lines": [], "total": 0, "error": str(exc), "keyword": keyword, "tail": tail}
+
+    if keyword.strip():
+        kw = keyword.strip().lower()
+        lines = [l for l in lines if kw in l.lower()]
+        tail = min(tail, 500)
+
+    result = lines[-tail:] if tail > 0 else lines
+    return {"lines": result, "total": len(lines), "keyword": keyword, "tail": tail}
+
+
+@app.get("/api/logs/download")
+def download_logs():
+    """下载完整日志文件（app.log）。"""
+    from utils.path_utils import LOGS_DIR
+    log_file = LOGS_DIR / "app.log"
+    if not log_file.exists():
+        raise HTTPException(404, "日志文件不存在")
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return FileResponse(
+        str(log_file),
+        media_type="text/plain; charset=utf-8",
+        filename=f"agnes_ai_log_{ts}.log",
+    )
+
+
 # ─────────────── File serving ───────────────
 
 @app.get("/api/file")
@@ -1305,7 +1369,7 @@ def cleanup_stuck_tasks():
             age_seconds = 0
 
         # If task has been stuck for more than 10 minutes, mark as failed
-        if age_seconds > 600:
+        if age_seconds > _QUEUED_TIMEOUT:
             LOGGER.info(
                 "Startup cleanup: marking stale task %s as failed (age=%ds, status=%s)",
                 t.get("task_id"), age_seconds, t.get("status"),
@@ -1363,10 +1427,10 @@ def main():
     print("\n  Agnes AI Client v3.0 — Web UI")
     print(f"  {url}\n")
 
-    if os.environ.get("AGNESAI_OPEN_BROWSER", "1").lower() not in {"0", "false", "no"}:
+    if os.environ.get("AGNESAI_OPEN_BROWSER", "0").lower() not in {"0", "false", "no"}:
         threading.Timer(1.5, lambda: webbrowser.open(url)).start()
 
-    uvicorn.run(app, host=host, port=port, log_level="info")
+    uvicorn.run(app, host=host, port=port, log_level="info", log_config=None)
 
 if __name__ == "__main__":
     main()

@@ -32,6 +32,8 @@ class AgnesClient:
     def __post_init__(self) -> None:
         self.base_url = (self.base_url or "").rstrip("/")
         self.session = requests.Session()
+        # Disable SSL verification for proxy/MITM environments (Windows Schannel compatibility)
+        self.session.verify = False
 
     def _headers(self) -> dict[str, str]:
         if not self.api_key:
@@ -49,6 +51,8 @@ class AgnesClient:
         except Exception:
             pass
         self.session = requests.Session()
+        # Disable SSL verification for proxy/MITM environments (Windows Schannel compatibility)
+        self.session.verify = False
         LOGGER.info("HTTP session reset (connection pool cleared)")
 
     def request(
@@ -77,6 +81,7 @@ class AgnesClient:
                     headers=self._headers(),
                     json=json_payload,
                     timeout=timeout or self.timeout,
+                    verify=False,
                 )
                 break
             except requests.Timeout as exc:
@@ -131,13 +136,16 @@ class AgnesClient:
 
         for attempt in range(2):
             try:
+                # connect timeout + read timeout (read can be very long for streaming AI)
+                _timeout = timeout or self.timeout
                 response = self.session.request(
                     method=method.upper(),
                     url=url,
                     headers=headers,
                     json=json_payload,
-                    timeout=timeout or self.timeout,
+                    timeout=(_timeout, _timeout * 10) if isinstance(_timeout, (int, float)) else _timeout,
                     stream=True,
+                    verify=False,
                 )
                 break
             except requests.Timeout as exc:

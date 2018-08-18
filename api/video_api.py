@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import mimetypes
 import shutil
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -10,9 +11,27 @@ from typing import Any
 from urllib.parse import quote
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from api.client import AgnesAPIError, AgnesClient
 from utils.logging_utils import LOGGER
+
+
+def _create_retry_session(max_retries: int = 3) -> requests.Session:
+    """Create a requests session with automatic retry on transient errors."""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=max_retries,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET", "HEAD"],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=4, pool_maxsize=4)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 
 @dataclass
@@ -86,7 +105,20 @@ class VideoGenerator:
         )
 
     def query_task(self, task_id: str) -> VideoTask:
-        data = self.client.request("GET", f"/videos/{task_id}", timeout=60)
+        # Retry on transient errors (502, 503, timeout, connection reset)
+        data = None
+        for attempt in range(3):
+            try:
+                data = self.client.request("GET", f"/videos/{task_id}", timeout=90)
+                break
+            except Exception as exc:
+                LOGGER.warning("Video query attempt %d/3 failed for %s: %s", attempt + 1, task_id, exc)
+                if attempt < 2:
+                    import time as _t; _t.sleep((attempt + 1) * 2)
+                else:
+                    raise AgnesAPIError(f"查询视频任务失败（重试 {attempt + 1} 次）：{exc}") from exc
+        if data is None:
+            raise AgnesAPIError("查询视频任务失败：所有重试均失败")
         payload = data.get("data", data) if isinstance(data, dict) else {}
         status = str(payload.get("status") or payload.get("state") or "queued")
 

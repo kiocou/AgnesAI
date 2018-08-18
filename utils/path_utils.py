@@ -10,6 +10,13 @@ def app_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+def config_path() -> Path:
+    """Config file lives next to exe when frozen, otherwise in project config/."""
+    if getattr(sys, "frozen", False):
+        return app_root() / "config.json"
+    return CONFIG_DIR / "config.json"
+
+
 ROOT_DIR = app_root()
 CONFIG_DIR = ROOT_DIR / "config"
 DATABASE_DIR = ROOT_DIR / "database"

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from utils.path_utils import CONFIG_DIR, ensure_directories
+from utils.path_utils import CONFIG_DIR, ensure_directories, config_path
 
 
 DEFAULT_BASE_URL = "https://apihub.agnes-ai.com/v1"
@@ -23,8 +23,9 @@ class AppConfig:
 
     @classmethod
     def path(cls) -> Path:
-        ensure_directories()
-        return CONFIG_DIR / "config.json"
+        p = config_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return p
 
     @classmethod
     def load(cls) -> "AppConfig":

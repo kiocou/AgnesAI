@@ -1,3 +1,1 @@
-PySide6>=6.7,<7
-requests>=2.31
-pyinstaller>=6.6
+fastapi>=0.136\nuvicorn[standard]>=0.48\npydantic>=2.13\nrequests>=2.34\nPySide6>=6.11\npython-multipart>=0.0.30\nwebsockets>=16\nurllib3>=2.7\ncertifi>=2024\nhttptools>=0.8\nwatchfiles>=1.2\npyinstaller>=6.6\n
