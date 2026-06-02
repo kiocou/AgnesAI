@@ -1,0 +1,2804 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agnes AI</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f1720'/%3E%3Cpath d='M18 48 31 14h5l13 34h-8l-3-8H28l-3 8h-7Zm12-15h6l-3-9-3 9Z' fill='%2358a6ff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════ CSS Variables ═══════════*/
+:root {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-card: #1a1a26;
+  --bg-card-hover: #222233;
+  --bg-input: #15151f;
+  --border: #2a2a3d;
+  --border-focus: #6366f1;
+  --text-primary: #f0f0f5;
+  --text-secondary: #9ca3b8;
+  --text-muted: #6b7280;
+  --accent: #6366f1;
+  --accent-light: #818cf8;
+  --accent-glow: rgba(99,102,241,0.25);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --gradient-1: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+  --gradient-2: linear-gradient(135deg, #06b6d4, #6366f1);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 48px rgba(0,0,0,0.5);
+  --transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ═══════════ Reset ═══════════*/
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px;-webkit-font-smoothing:antialiased}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg-primary);color:var(--text-primary);overflow:hidden;height:100vh}
+a{color:var(--accent-light);text-decoration:none}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+
+/* ═══════════ Layout ═══════════*/
+.app{display:flex;height:100vh}
+
+/* ── Sidebar ── */
+.sidebar{
+  width:240px;min-width:240px;
+  background:var(--bg-secondary);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  padding:0;z-index:10;
+}
+.sidebar-brand{
+  padding:24px 20px 20px;
+  display:flex;align-items:center;gap:12px;
+}
+.sidebar-brand .logo{
+  width:38px;height:38px;border-radius:10px;
+  background:var(--gradient-1);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:16px;color:#fff;
+  box-shadow:0 0 20px var(--accent-glow);
+}
+.sidebar-brand h1{font-size:17px;font-weight:700;letter-spacing:-0.3px}
+.sidebar-brand span{font-size:11px;color:var(--text-muted);display:block;margin-top:2px}
+
+.sidebar-nav{flex:1;padding:8px 12px;display:flex;flex-direction:column;gap:2px}
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 14px;border-radius:var(--radius-sm);
+  cursor:pointer;transition:var(--transition);
+  color:var(--text-secondary);font-size:14px;font-weight:500;
+  border:1px solid transparent;
+}
+.nav-item:hover{background:var(--bg-card);color:var(--text-primary)}
+.nav-item.active{
+  background:rgba(99,102,241,0.1);
+  color:var(--accent-light);
+  border-color:rgba(99,102,241,0.2);
+}
+.nav-item svg{width:20px;height:20px;flex-shrink:0;opacity:0.7}
+.nav-item.active svg{opacity:1}
+.nav-divider{height:1px;background:var(--border);margin:12px 4px}
+
+.sidebar-footer{padding:16px 16px 20px;border-top:1px solid var(--border)}
+.sidebar-footer .version{font-size:11px;color:var(--text-muted);text-align:center}
+
+/* ── Main Content ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* Top bar */
+.topbar{
+  height:56px;min-height:56px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;
+  padding:0 24px;gap:12px;
+  background:var(--bg-secondary);
+}
+.topbar-title{font-size:15px;font-weight:600;flex:1}
+.topbar input{
+  height:34px;padding:0 12px;
+  background:var(--bg-input);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text-primary);
+  font-size:13px;outline:none;transition:var(--transition);
+  width:200px;
+}
+.topbar input:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px var(--accent-glow)}
+.topbar .btn-sm{
+  height:34px;padding:0 16px;font-size:12px;font-weight:600;
+  border-radius:var(--radius-sm);cursor:pointer;border:none;
+  transition:var(--transition);
+}
+
+/* Content area */
+.content{flex:1;overflow-y:auto;padding:24px;background:var(--bg-primary);display:flex;flex-direction:column}
+.page{display:none;flex:1;min-height:0}
+.page.active{display:flex;flex-direction:column}
+
+/* ═══════════ Components ═══════════*/
+
+/* Cards */
+.card{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:24px;
+  transition:var(--transition);
+}
+.card:hover{border-color:#3a3a50}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-size:15px;font-weight:600}
+
+/* Grid layout */
+.grid-2{display:grid;grid-template-columns:380px 1fr;gap:24px;height:100%}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+
+/* Form elements */
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
+.form-input,.form-select,.form-textarea{
+  width:100%;padding:10px 14px;
+  background:var(--bg-input);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  color:var(--text-primary);
+  font-size:14px;font-family:inherit;
+  outline:none;transition:border-color .16s cubic-bezier(.2,0,.2,1),box-shadow .16s cubic-bezier(.2,0,.2,1);
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{
+  border-color:var(--border-focus);
+  box-shadow:0 0 0 3px var(--accent-glow);
+}
+.form-textarea{resize:vertical;min-height:100px;line-height:1.6}
+.form-select{cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239ca3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+  padding-right:32px;
+}
+.form-select option{background:var(--bg-card);color:var(--text-primary)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 24px;border-radius:var(--radius-sm);
+  font-size:14px;font-weight:600;font-family:inherit;
+  cursor:pointer;border:none;transition:var(--transition);
+  white-space:nowrap;
+}
+.btn-primary{
+  background:var(--gradient-1);color:#fff;
+  box-shadow:0 2px 12px var(--accent-glow);
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 20px var(--accent-glow)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.btn-secondary{
+  background:var(--bg-card);color:var(--text-primary);
+  border:1px solid var(--border);
+}
+.btn-secondary:hover{border-color:#4a4a60;background:var(--bg-card-hover)}
+.btn-danger{background:rgba(239,68,68,0.1);color:var(--danger);border:1px solid rgba(239,68,68,0.2)}
+.btn-danger:hover{background:rgba(239,68,68,0.2)}
+.btn-ghost{background:transparent;color:var(--text-secondary);padding:8px 12px}
+.btn-ghost:hover{color:var(--text-primary);background:var(--bg-card)}
+.btn-block{width:100%}
+
+/* Progress bar */
+.progress{height:6px;background:var(--bg-input);border-radius:3px;overflow:hidden}
+.progress-bar{height:100%;background:var(--gradient-1);border-radius:3px;transition:width 0.4s ease}
+.progress-bar.success{background:var(--success)}
+.progress-bar.indeterminate{
+  width:30%!important;
+  animation:indeterminate 1.5s ease-in-out infinite;
+}
+@keyframes indeterminate{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}
+
+/* Status badges */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:20px;
+  font-size:11px;font-weight:600;
+}
+.badge-success{background:rgba(16,185,129,0.12);color:var(--success)}
+.badge-warning{background:rgba(245,158,11,0.12);color:var(--warning)}
+.badge-danger{background:rgba(239,68,68,0.12);color:var(--danger)}
+.badge-info{background:rgba(99,102,241,0.12);color:var(--accent-light)}
+.badge-muted{background:rgba(107,114,128,0.12);color:var(--text-muted)}
+
+/* Table */
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+th{
+  text-align:left;padding:10px 16px;
+  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;
+  color:var(--text-muted);background:var(--bg-card);
+  border-bottom:1px solid var(--border);
+}
+td{
+  padding:12px 16px;font-size:13px;
+  border-bottom:1px solid var(--border);
+  color:var(--text-secondary);
+}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(99,102,241,0.03)}
+td.truncate{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Preview thumbnails */
+.preview-thumb{
+  width:64px;height:64px;border-radius:6px;overflow:hidden;
+  border:1px solid var(--border);background:var(--bg-input);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:border-color .16s cubic-bezier(.2,0,.2,1);
+}
+.preview-thumb:hover{border-color:var(--accent)}
+.preview-thumb img,.preview-thumb video{
+  width:100%;height:100%;object-fit:cover;display:block;
+}
+.preview-thumb .thumb-placeholder{
+  font-size:11px;color:var(--text-muted);text-align:center;line-height:1.2;
+}
+.preview-count{
+  position:absolute;bottom:2px;right:2px;
+  background:rgba(0,0,0,.65);color:#fff;
+  font-size:10px;padding:1px 5px;border-radius:4px;
+  font-weight:600;
+}
+.preview-thumb-wrap{position:relative;display:inline-block}
+
+/* Image gallery */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+.gallery-item{
+  position:relative;border-radius:var(--radius);overflow:hidden;
+  border:1px solid var(--border);background:var(--bg-card);
+  aspect-ratio:1;cursor:pointer;transition:var(--transition);
+}
+.gallery-item:hover{border-color:var(--accent);transform:scale(1.02)}
+.gallery-item img{width:100%;height:100%;object-fit:cover}
+.gallery-item .overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(transparent 60%,rgba(0,0,0,0.7));
+  opacity:0;transition:var(--transition);
+  display:flex;align-items:flex-end;padding:12px;
+}
+.gallery-item:hover .overlay{opacity:1}
+
+/* Upload area */
+.upload-area{
+  border:2px dashed var(--border);
+  border-radius:var(--radius);
+  padding:32px;text-align:center;
+  cursor:pointer;transition:var(--transition);
+  color:var(--text-muted);font-size:13px;
+}
+.upload-area:hover,.upload-area.dragover{
+  border-color:var(--accent);
+  background:rgba(99,102,241,0.05);
+  color:var(--accent-light);
+}
+.upload-area img{max-width:100%;max-height:120px;border-radius:8px;margin-top:8px}
+
+/* Empty state */
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 20px;color:var(--text-muted);
+}
+.empty-state svg{width:48px;height:48px;margin-bottom:16px;opacity:0.3}
+.empty-state p{font-size:14px}
+
+/* Toast */
+.toast-container{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{
+  padding:12px 20px;border-radius:var(--radius-sm);
+  background:var(--bg-card);border:1px solid var(--border);
+  color:var(--text-primary);font-size:13px;font-weight:500;
+  box-shadow:var(--shadow-lg);
+  animation:toast-in 0.3s ease;
+  display:flex;align-items:center;gap:10px;
+  min-width:280px;
+}
+.toast.success{border-color:rgba(16,185,129,0.3)}
+.toast.error{border-color:rgba(239,68,68,0.3)}
+.toast .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.toast.success .dot{background:var(--success)}
+.toast.error .dot{background:var(--danger)}
+@keyframes toast-in{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+
+/* Loading spinner */
+.spinner{
+  width:20px;height:20px;border:2px solid var(--border);
+  border-top-color:var(--accent-light);border-radius:50%;
+  animation:spin 0.7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Modal */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,0.8);
+  z-index:100;display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);
+  animation:fade-in 0.2s ease;
+}
+.modal{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:0;
+  max-width:90vw;max-height:90vh;overflow:auto;
+  box-shadow:var(--shadow-lg);
+  animation:scale-in 0.25s ease;
+}
+.modal img,.modal video{max-width:85vw;max-height:85vh;display:block;border-radius:var(--radius)}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes scale-in{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+
+/* Pulse animation for generating */
+.pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+/* Video result card */
+.video-result{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:hidden;
+}
+.video-result video{width:100%;max-height:400px;background:#000;display:block}
+.video-result .actions{padding:16px;display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── Chat Page ── */
+.chat-container{display:flex;flex-direction:column;height:100%;gap:0}
+.chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.chat-msg{max-width:85%;animation:fadeIn 0.2s ease}
+.chat-msg.user{align-self:flex-end}
+.chat-msg.assistant{align-self:flex-start}
+.chat-msg .msg-role{font-size:11px;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+.chat-msg.user .msg-role{color:var(--success);text-align:right}
+.chat-msg.assistant .msg-role{color:var(--accent-light)}
+.chat-msg .msg-bubble{
+  padding:12px 16px;border-radius:var(--radius);line-height:1.6;font-size:14px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.chat-msg.user .msg-bubble{background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.2)}
+.chat-msg.assistant .msg-bubble{background:var(--bg-card);border:1px solid var(--border)}
+.chat-msg.error .msg-bubble{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:var(--danger)}
+.chat-input-area{
+  border-top:1px solid var(--border);padding:16px 20px;
+  display:flex;gap:12px;align-items:flex-end;background:var(--bg-secondary);
+}
+.chat-input-area textarea{
+  flex:1;resize:none;min-height:48px;max-height:160px;
+  background:var(--bg-input);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text-primary);
+  padding:12px 14px;font-size:14px;font-family:inherit;line-height:1.5;
+  outline:none;transition:border-color 0.2s;
+}
+.chat-input-area textarea:focus{border-color:var(--border-focus)}
+.chat-sidebar{
+  width:280px;min-width:280px;border-right:1px solid var(--border);
+  background:var(--bg-secondary);padding:20px;display:flex;flex-direction:column;gap:12px;
+  overflow-y:auto;
+}
+.chat-sidebar .form-group{margin-bottom:0}
+.chat-sidebar .form-label{font-size:12px;color:var(--text-secondary);margin-bottom:4px;display:block}
+.chat-sidebar select,.chat-sidebar input{
+  width:100%;background:var(--bg-input);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text-primary);padding:8px 10px;
+  font-size:13px;outline:none;
+}
+.chat-sidebar select:focus,.chat-sidebar input:focus{border-color:var(--border-focus)}
+.chat-layout{display:flex;flex:1;overflow:hidden}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.cursor-blink{display:inline-block;width:2px;height:16px;background:var(--accent-light);animation:blink 0.8s step-end infinite;vertical-align:text-bottom;margin-left:2px}
+@keyframes blink{50%{opacity:0}}
+
+/* ── Tool Call Cards ── */
+.tool-card{
+  margin:8px 0;padding:12px 16px;border-radius:var(--radius-sm);
+  background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.15);
+  font-size:13px;line-height:1.5;
+}
+
+/* ── Chat Conversation List ── */
+.chat-conv-list{flex:1;overflow-y:auto;margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.chat-conv-item{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:var(--radius-sm);
+  cursor:pointer;transition:var(--transition);
+  font-size:12px;color:var(--text-secondary);
+  border:1px solid transparent;
+}
+.chat-conv-item:hover{background:var(--bg-card);color:var(--text-primary);border-color:var(--border)}
+.chat-conv-item.active{background:rgba(99,102,241,0.1);color:var(--accent-light);border-color:rgba(99,102,241,0.2)}
+.chat-conv-item .conv-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-conv-item .conv-meta{font-size:10px;color:var(--text-muted);flex-shrink:0}
+.chat-conv-item .conv-delete{
+  opacity:0;flex-shrink:0;width:18px;height:18px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:4px;cursor:pointer;color:var(--text-muted);
+  transition:var(--transition);
+}
+.chat-conv-item:hover .conv-delete{opacity:1}
+.chat-conv-item .conv-delete:hover{color:var(--danger);background:rgba(239,68,68,0.1)}
+.chat-conv-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.chat-conv-header span{font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px}
+.chat-conv-header button{
+  font-size:11px;padding:2px 8px;border-radius:4px;cursor:pointer;
+  background:rgba(99,102,241,0.1);color:var(--accent-light);border:1px solid rgba(99,102,241,0.2);
+  transition:var(--transition);
+}
+.chat-conv-header button:hover{background:rgba(99,102,241,0.2)}
+
+/* ── Chat Image Upload ── */
+.chat-image-preview{
+  position:relative;display:inline-block;margin:0 4px 8px 0;
+}
+.chat-image-preview img{
+  max-height:80px;max-width:120px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);display:block;
+}
+.chat-image-preview .remove-img{
+  position:absolute;top:-6px;right:-6px;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--danger);color:#fff;border:none;
+  font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  line-height:1;
+}
+.chat-image-preview .remove-img:hover{background:#dc2626}
+.chat-upload-btn{
+  width:48px;height:48px;border-radius:var(--radius-sm);
+  background:var(--bg-card);border:1px solid var(--border);
+  color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:var(--transition);flex-shrink:0;
+}
+.chat-upload-btn:hover{border-color:var(--accent);color:var(--accent-light);background:var(--bg-card-hover)}
+.chat-upload-btn svg{width:22px;height:22px}
+.chat-img-in-msg{max-width:240px;max-height:200px;border-radius:var(--radius-sm);margin-bottom:8px;display:block;border:1px solid var(--border)}
+.tool-card .tool-header{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--accent-light);margin-bottom:6px}
+.tool-card .tool-header svg{width:16px;height:16px;flex-shrink:0}
+.tool-card .tool-status{font-size:12px;color:var(--text-muted)}
+.tool-card .tool-status .spinner{width:12px;height:12px;border-width:2px}
+.tool-card.tool-success{border-color:rgba(16,185,129,0.2);background:rgba(16,185,129,0.06)}
+.tool-card.tool-success .tool-header{color:var(--success)}
+.tool-card.tool-error{border-color:rgba(239,68,68,0.2);background:rgba(239,68,68,0.06)}
+.tool-card.tool-error .tool-header{color:var(--danger)}
+.tool-media{margin-top:10px;border-radius:var(--radius-sm);overflow:hidden}
+.tool-media img{max-width:100%;max-height:360px;display:block;border-radius:var(--radius-sm)}
+.tool-media video{max-width:100%;max-height:360px;display:block;border-radius:var(--radius-sm);background:#000}
+.tool-media .video-pending{padding:12px;background:var(--bg-input);border-radius:var(--radius-sm);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px}
+
+/* ═══════════ Professional Workbench Refinement ═══════════*/
+:root{
+  --bg-primary:#0b0d10;
+  --bg-secondary:#101318;
+  --bg-card:#171b22;
+  --bg-card-hover:#1d232c;
+  --bg-input:#0f1319;
+  --border:#2a313b;
+  --border-focus:#58a6ff;
+  --text-primary:#f3f6fb;
+  --text-secondary:#a9b4c4;
+  --text-muted:#717d8f;
+  --accent:#58a6ff;
+  --accent-light:#8cc5ff;
+  --accent-glow:rgba(88,166,255,.22);
+  --success:#3fb950;
+  --warning:#d29922;
+  --danger:#f85149;
+  --gradient-1:linear-gradient(135deg,#58a6ff,#3fb950);
+  --gradient-2:linear-gradient(135deg,#d29922,#58a6ff);
+  --radius:8px;
+  --radius-sm:6px;
+  --radius-lg:8px;
+  --shadow:0 16px 42px rgba(0,0,0,.28);
+  --shadow-lg:0 24px 70px rgba(0,0,0,.46);
+  --transition:160ms cubic-bezier(.2,0,.2,1);
+}
+
+html{font-size:14px}
+body{
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+    var(--bg-primary);
+  background-size:48px 48px,48px 48px,auto;
+}
+
+.app{isolation:isolate}
+.sidebar{
+  width:252px;
+  min-width:252px;
+  background:color-mix(in srgb,var(--bg-secondary) 92%,#000);
+  box-shadow:inset -1px 0 0 rgba(255,255,255,.03);
+}
+.sidebar-brand{
+  padding:22px 18px 18px;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.sidebar-brand .logo{
+  border-radius:8px;
+  background:#0f1720;
+  border:1px solid rgba(88,166,255,.34);
+  color:var(--accent-light);
+  box-shadow:0 0 0 3px rgba(88,166,255,.08),0 12px 28px rgba(0,0,0,.28);
+}
+.sidebar-brand h1{letter-spacing:0;font-size:16px}
+.sidebar-nav{padding:12px}
+.nav-item{
+  position:relative;
+  min-height:42px;
+  padding:10px 12px;
+  border-radius:7px;
+}
+.nav-item::before{
+  content:"";
+  position:absolute;
+  left:6px;
+  top:50%;
+  width:3px;
+  height:0;
+  border-radius:999px;
+  background:var(--accent);
+  transform:translateY(-50%);
+  transition:height var(--transition);
+}
+.nav-item:hover{
+  background:rgba(255,255,255,.045);
+  transform:translateX(2px);
+}
+.nav-item.active{
+  background:rgba(88,166,255,.105);
+  border-color:rgba(88,166,255,.26);
+}
+.nav-item.active::before{height:20px}
+
+.topbar{
+  height:64px;
+  min-height:64px;
+  background:rgba(16,19,24,.92);
+  backdrop-filter:blur(18px);
+  padding:0 22px;
+}
+.topbar-title{
+  font-size:16px;
+  letter-spacing:0;
+}
+.topbar input{
+  height:36px;
+  border-radius:6px;
+}
+.content{
+  padding:18px;
+  background:
+    linear-gradient(180deg,rgba(88,166,255,.045),transparent 190px),
+    transparent;
+}
+.page.active{
+  animation:page-enter 220ms cubic-bezier(.2,0,.2,1);
+}
+@keyframes page-enter{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+.grid-2{
+  grid-template-columns:minmax(392px,430px) minmax(0,1fr);
+  gap:18px;
+  align-items:start;
+}
+.card{
+  padding:18px;
+  border-radius:8px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),transparent),var(--bg-card);
+  box-shadow:var(--shadow);
+}
+.card:hover{
+  border-color:#3d4653;
+  transform:translateY(-1px);
+}
+.grid-2 > .card:first-child{
+  position:sticky;
+  top:0;
+  max-height:calc(100vh - 112px);
+  overflow:auto;
+}
+.card-header{
+  min-height:34px;
+  margin-bottom:14px;
+  padding-bottom:12px;
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.card-title{
+  font-size:14px;
+  letter-spacing:.2px;
+}
+.form-group{margin-bottom:13px}
+.form-label{
+  margin-bottom:6px;
+  color:#c1cad8;
+  letter-spacing:.35px;
+}
+.form-input,.form-select,.form-textarea{
+  border-radius:7px;
+  background:linear-gradient(180deg,rgba(255,255,255,.025),transparent),var(--bg-input);
+}
+#img-model,#vid-resolution,#vid-fps,#vid-duration{
+  min-width:0;
+}
+.form-textarea{
+  min-height:92px;
+}
+.form-input:hover,.form-select:hover,.form-textarea:hover{
+  border-color:#3b4655;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{
+  box-shadow:0 0 0 3px rgba(88,166,255,.14);
+}
+.btn{
+  min-height:38px;
+  border-radius:7px;
+}
+.btn-primary{
+  background:var(--gradient-1);
+  box-shadow:0 10px 26px rgba(63,185,80,.12),0 0 0 1px rgba(255,255,255,.08) inset;
+}
+.btn-primary:hover{
+  transform:translateY(-1px);
+  filter:saturate(1.08) brightness(1.04);
+}
+.btn-secondary:hover,.btn-ghost:hover{
+  transform:translateY(-1px);
+}
+.btn:focus-visible,.nav-item:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+.gallery{
+  grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+  gap:14px;
+}
+.gallery-item{
+  border-radius:8px;
+  box-shadow:0 12px 32px rgba(0,0,0,.22);
+}
+.gallery-item:hover{
+  transform:translateY(-3px);
+  box-shadow:0 20px 44px rgba(0,0,0,.34);
+}
+.gallery-item .overlay{
+  background:linear-gradient(180deg,transparent 48%,rgba(0,0,0,.84));
+}
+
+.table-wrap{
+  border-radius:8px;
+  background:var(--bg-card);
+}
+th{
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:#121720;
+}
+td{
+  height:52px;
+}
+tr{
+  transition:background-color var(--transition),transform var(--transition);
+}
+tr:hover td{
+  background:rgba(88,166,255,.045);
+}
+.badge{
+  border-radius:999px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.045) inset;
+}
+.badge-warning{
+  animation:status-breathe 1.8s ease-in-out infinite;
+}
+@keyframes status-breathe{
+  0%,100%{box-shadow:0 0 0 1px rgba(210,153,34,.18) inset}
+  50%{box-shadow:0 0 0 1px rgba(210,153,34,.36) inset,0 0 22px rgba(210,153,34,.12)}
+}
+.progress{
+  height:7px;
+  background:#0b0f14;
+}
+.progress-bar{
+  background:linear-gradient(90deg,var(--accent),var(--success));
+  position:relative;
+  overflow:hidden;
+}
+.progress-bar::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.32),transparent);
+  transform:translateX(-100%);
+  animation:progress-sheen 1.6s ease-in-out infinite;
+}
+@keyframes progress-sheen{
+  to{transform:translateX(100%)}
+}
+
+.upload-area{
+  padding:24px;
+  border-radius:8px;
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.018) 0 8px,transparent 8px 16px),var(--bg-input);
+}
+.upload-area:hover,.upload-area.dragover{
+  transform:translateY(-1px);
+  box-shadow:0 0 0 3px rgba(88,166,255,.1);
+}
+.empty-state{
+  min-height:280px;
+  border:1px dashed rgba(255,255,255,.08);
+  border-radius:8px;
+  background:rgba(255,255,255,.018);
+}
+.video-result{
+  border-radius:8px;
+  box-shadow:var(--shadow);
+}
+.modal{
+  border-radius:8px;
+}
+.toast{
+  border-radius:8px;
+}
+
+.theme-toggle{
+  height:36px;
+  min-width:92px;
+  padding:0 12px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border:1px solid var(--border);
+  border-radius:7px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),transparent),var(--bg-input);
+  color:var(--text-secondary);
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  transition:var(--transition);
+}
+.theme-toggle:hover{
+  color:var(--text-primary);
+  border-color:var(--accent);
+  transform:translateY(-1px);
+}
+.theme-toggle:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+.theme-toggle svg{
+  width:16px;
+  height:16px;
+  flex-shrink:0;
+}
+.theme-toggle .theme-sun{display:none}
+body.theme-light .theme-toggle .theme-moon{display:none}
+body.theme-light .theme-toggle .theme-sun{display:block}
+
+body.theme-transitioning * {
+  transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body.theme-transitioning *::before,
+body.theme-transitioning *::after {
+  transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body.theme-dark{
+  color-scheme:dark;
+}
+body.theme-light{
+  color-scheme:light;
+  --bg-primary:#f6f8fb;
+  --bg-secondary:#ffffff;
+  --bg-card:#ffffff;
+  --bg-card-hover:#eef3f8;
+  --bg-input:#f3f6fa;
+  --border:#d7dee8;
+  --border-focus:#146fc7;
+  --text-primary:#121821;
+  --text-secondary:#536273;
+  --text-muted:#8592a4;
+  --accent:#146fc7;
+  --accent-light:#0f5faa;
+  --accent-glow:rgba(20,111,199,.16);
+  --success:#18794e;
+  --warning:#9a6700;
+  --danger:#c62828;
+  --gradient-1:linear-gradient(135deg,#146fc7,#18794e);
+  --gradient-2:linear-gradient(135deg,#9a6700,#146fc7);
+  --shadow:0 14px 34px rgba(28,39,56,.10);
+  --shadow-lg:0 24px 70px rgba(28,39,56,.18);
+  background:
+    linear-gradient(90deg,rgba(18,24,33,.055) 1px,transparent 1px),
+    linear-gradient(rgba(18,24,33,.04) 1px,transparent 1px),
+    var(--bg-primary);
+  background-size:48px 48px,48px 48px,auto;
+}
+body.theme-light::-webkit-scrollbar-thumb,
+body.theme-light *::-webkit-scrollbar-thumb{background:#c5cfdb}
+body.theme-light .topbar{
+  background:rgba(255,255,255,.90);
+  box-shadow:0 1px 0 rgba(18,24,33,.05);
+}
+body.theme-light .sidebar{
+  background:color-mix(in srgb,var(--bg-secondary) 94%,#f6f8fb);
+  box-shadow:inset -1px 0 0 rgba(18,24,33,.06);
+}
+body.theme-light .sidebar-brand{border-bottom-color:rgba(18,24,33,.07)}
+body.theme-light .sidebar-brand .logo{
+  background:#ffffff;
+  color:var(--accent);
+  border-color:rgba(20,111,199,.28);
+  box-shadow:0 0 0 3px rgba(20,111,199,.07),0 10px 24px rgba(28,39,56,.10);
+}
+body.theme-light .nav-divider{background:rgba(18,24,33,.08)}
+body.theme-light .nav-item:hover{background:rgba(18,24,33,.045)}
+body.theme-light .nav-item.active{
+  background:rgba(20,111,199,.10);
+  border-color:rgba(20,111,199,.22);
+}
+body.theme-light .content{
+  background:
+    linear-gradient(180deg,rgba(20,111,199,.055),transparent 190px),
+    transparent;
+}
+body.theme-light .card{
+  background:linear-gradient(180deg,rgba(255,255,255,.72),transparent),var(--bg-card);
+}
+body.theme-light .card:hover{border-color:#c6d1df}
+body.theme-light .card-header{border-bottom-color:rgba(18,24,33,.08)}
+body.theme-light .form-label{color:#536273}
+body.theme-light .form-input,
+body.theme-light .form-select,
+body.theme-light .form-textarea{
+  background:linear-gradient(180deg,rgba(255,255,255,.66),transparent),var(--bg-input);
+}
+body.theme-light .form-input:hover,
+body.theme-light .form-select:hover,
+body.theme-light .form-textarea:hover{border-color:#c0cad8}
+body.theme-light .form-select option{background:#fff;color:#121821}
+body.theme-light .btn-secondary{background:var(--bg-card);border-color:var(--border)}
+body.theme-light .btn-secondary:hover,
+body.theme-light .btn-ghost:hover{background:var(--bg-card-hover)}
+body.theme-light .table-wrap{background:var(--bg-card)}
+body.theme-light th{background:#eef3f8}
+body.theme-light tr:hover td{background:rgba(20,111,199,.055)}
+body.theme-light .progress{background:#e2e8f0}
+body.theme-light .empty-state{
+  border-color:rgba(18,24,33,.12);
+  background:rgba(255,255,255,.56);
+}
+body.theme-light .upload-area{
+  background:repeating-linear-gradient(135deg,rgba(18,24,33,.026) 0 8px,transparent 8px 16px),var(--bg-input);
+}
+
+#page-chat .chat-layout{
+  align-items:stretch;
+  overflow:hidden;
+  flex:1;
+  min-height:0;
+}
+#page-chat .chat-sidebar{
+  border:1px solid var(--border);
+  border-radius:8px 0 0 8px;
+}
+#page-chat.chat-has-messages .chat-sidebar{
+  height:100%;
+}
+#page-chat:not(.chat-has-messages) .chat-sidebar{
+  max-height:none;
+}
+#page-chat:not(.chat-has-messages) .chat-conv-list{
+  flex:0 1 auto;
+  max-height:220px;
+}
+#page-chat:not(.chat-has-messages) .chat-sidebar > div[style*="margin-top:auto"]{
+  margin-top:0!important;
+}
+#page-chat .chat-container{
+  height:100%;
+  min-width:0;
+  background:var(--bg-secondary);
+  border:1px solid var(--border);
+  border-left:0;
+  border-radius:0 8px 8px 0;
+  overflow:hidden;
+  box-shadow:var(--shadow);
+  display:flex;
+  flex-direction:column;
+}
+#page-chat .chat-messages{
+  flex:1 1 0;
+  min-height:0;
+  overflow-y:auto;
+  padding:18px 20px;
+  gap:14px;
+}
+#page-chat .chat-container.has-messages .chat-messages{
+  flex:1 1 0;
+  min-height:0;
+  overflow-y:auto;
+}
+#page-chat .chat-container.is-empty .chat-messages{
+  padding-bottom:0;
+}
+#page-chat .chat-container.is-empty .chat-input-area{
+  border-top:0;
+  padding-top:14px;
+}
+.chat-welcome{
+  text-align:center;
+  color:var(--text-muted);
+  padding:24px 20px;
+  font-size:14px;
+  line-height:1.75;
+}
+.chat-welcome-icon{
+  width:44px;
+  height:44px;
+  margin:0 auto 12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:8px;
+  color:var(--accent-light);
+  background:rgba(88,166,255,.10);
+  border:1px solid rgba(88,166,255,.18);
+}
+.chat-welcome-icon svg{
+  width:22px;
+  height:22px;
+}
+.chat-welcome-title{
+  font-weight:700;
+  color:var(--text-secondary);
+}
+.chat-welcome-text{
+  margin-top:4px;
+}
+body.theme-light .chat-welcome-icon{
+  background:rgba(20,111,199,.08);
+  border-color:rgba(20,111,199,.18);
+}
+
+#page-chat .chat-sidebar{
+  width:300px;
+  min-width:300px;
+  height:100%;
+  max-height:none;
+  padding:16px;
+}
+#page-chat.chat-has-messages .chat-sidebar,
+#page-chat:not(.chat-has-messages) .chat-sidebar{
+  height:100%;
+  max-height:none;
+}
+#page-chat .chat-conv-list,
+#page-chat:not(.chat-has-messages) .chat-conv-list{
+  flex:1 1 auto;
+  max-height:none;
+}
+.chat-history-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding-bottom:12px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.chat-sidebar-title,
+.chat-panel-title,
+.chat-settings-title{
+  font-size:15px;
+  font-weight:800;
+  color:var(--text-primary);
+  letter-spacing:0;
+}
+.chat-sidebar-subtitle,
+.chat-panel-subtitle,
+.chat-settings-subtitle{
+  margin-top:3px;
+  font-size:11px;
+  color:var(--text-muted);
+}
+.chat-history-actions{
+  display:flex;
+  gap:6px;
+  flex-shrink:0;
+}
+.chat-icon-btn,
+.chat-settings-btn{
+  border:1px solid var(--border);
+  border-radius:7px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),transparent),var(--bg-input);
+  color:var(--text-secondary);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  transition:var(--transition);
+}
+.chat-icon-btn{
+  width:34px;
+  height:34px;
+}
+.chat-icon-btn:hover,
+.chat-settings-btn:hover{
+  color:var(--accent-light);
+  border-color:var(--accent);
+  background:var(--bg-card-hover);
+  transform:translateY(-1px);
+}
+.chat-icon-btn:focus-visible,
+.chat-settings-btn:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+.chat-icon-btn svg{
+  width:16px;
+  height:16px;
+}
+.chat-panel-toolbar{
+  min-height:58px;
+  padding:12px 18px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  background:linear-gradient(180deg,rgba(255,255,255,.025),transparent),var(--bg-secondary);
+}
+.chat-settings-btn{
+  min-height:34px;
+  padding:0 12px;
+  gap:8px;
+  font-size:12px;
+  font-weight:700;
+}
+.chat-settings-btn svg{
+  width:16px;
+  height:16px;
+}
+.chat-settings-modal{
+  width:min(620px,calc(100vw - 32px));
+  padding:0;
+  overflow:hidden;
+}
+.chat-settings-header{
+  min-height:66px;
+  padding:16px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(255,255,255,.035),transparent),var(--bg-secondary);
+}
+.chat-settings-body{
+  padding:18px;
+  max-height:min(62vh,620px);
+  overflow:auto;
+}
+.chat-settings-body .form-group:last-child{
+  margin-bottom:0;
+}
+.chat-system-textarea{
+  min-height:220px;
+  font-size:13px;
+}
+.chat-settings-footer{
+  padding:14px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  border-top:1px solid var(--border);
+  color:var(--text-muted);
+  font-size:11px;
+  line-height:1.5;
+  background:var(--bg-secondary);
+}
+body.theme-light .chat-history-head{border-bottom-color:rgba(18,24,33,.08)}
+body.theme-light .chat-panel-toolbar,
+body.theme-light .chat-settings-header{
+  background:linear-gradient(180deg,rgba(255,255,255,.70),transparent),var(--bg-secondary);
+}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    scroll-behavior:auto!important;
+    transition-duration:.001ms!important;
+  }
+}
+
+/* ── Responsive ── */
+@media(max-width:900px){
+  .sidebar{width:60px;min-width:60px}
+  .sidebar-brand h1,.sidebar-brand span,.nav-item span,.sidebar-footer{display:none}
+  .nav-item{justify-content:center;padding:12px}
+  .grid-2{grid-template-columns:1fr}
+  .topbar{gap:8px;padding:0 12px}
+  .theme-toggle{min-width:42px;padding:0 10px}
+  .theme-toggle-label{display:none}
+  #page-chat .chat-layout{flex-direction:column}
+  #page-chat .chat-sidebar,
+  #page-chat .chat-container{
+    width:100%;
+    min-width:0;
+    height:auto;
+    border:1px solid var(--border);
+    border-radius:8px;
+  }
+  #page-chat.chat-has-messages .chat-sidebar,
+  #page-chat .chat-container.has-messages{
+    height:auto;
+    max-height:none;
+  }
+  #page-chat .chat-container.has-messages .chat-messages{
+    max-height:55vh;
+  }
+  .chat-settings-btn span{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ══════════ Sidebar ══════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">A</div>
+      <div>
+        <h1>Agnes AI</h1>
+        <span>AI Creative Studio</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-item active" data-page="image" onclick="switchPage('image')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+        <span>图片生成</span>
+      </div>
+      <div class="nav-item" data-page="video" onclick="switchPage('video')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span>视频生成</span>
+      </div>
+      <div class="nav-item" data-page="chat" onclick="switchPage('chat')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>AI 对话</span>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-item" data-page="history" onclick="switchPage('history')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>历史记录</span>
+      </div>
+      <div class="nav-item" data-page="download" onclick="switchPage('download')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>下载中心</span>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <span>设置</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="version">Agnes AI v3.0</div>
+    </div>
+  </aside>
+
+  <!-- ══════════ Main ══════════ -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">图片生成</div>
+      <button class="theme-toggle" id="theme-toggle" type="button" onclick="toggleUiTheme()" title="切换黑白模式" aria-label="切换黑白模式" aria-pressed="false">
+        <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z"/></svg>
+        <svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <span class="theme-toggle-label" id="theme-toggle-label">黑色</span>
+      </button>
+    </div>
+
+    <div class="content">
+
+      <!-- ══════ PAGE: Image Generation ══════ -->
+      <div class="page active" id="page-image">
+        <div class="grid-2">
+          <!-- Form -->
+          <div class="card" style="align-self:start">
+            <div class="card-header"><div class="card-title">创作设置</div></div>
+            <div class="form-group">
+              <label class="form-label">Prompt</label>
+              <textarea class="form-textarea" id="img-prompt" placeholder="描述你想生成的图片内容..." rows="4"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Negative Prompt</label>
+              <textarea class="form-textarea" id="img-neg" placeholder="不希望出现的元素..." rows="2" style="min-height:60px"></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">模型</label>
+                <select class="form-select" id="img-model" onchange="updateImageSizes()">
+                  <option value="agnes-image-2.1-flash">Agnes Image 2.1 Flash</option>
+                  <option value="agnes-image-2.0-flash">Agnes Image 2.0 Flash</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">尺寸</label>
+                <select class="form-select" id="img-size">
+                  <option value="512x512">512 x 512 (方形)</option>
+                  <option value="1152x768" selected>1152 x 768 (横版)</option>
+                  <option value="1024x1536">1024 x 1536 (竖版)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">数量</label>
+                <select class="form-select" id="img-count">
+                  <option value="1">1 张</option>
+                  <option value="2">2 张</option>
+                  <option value="3">3 张</option>
+                  <option value="4">4 张</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Seed (可选)</label>
+                <input class="form-input" id="img-seed" type="text" placeholder="留空随机" />
+              </div>
+            </div>
+            <button class="btn btn-primary btn-block" id="img-generate-btn" onclick="generateImages()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              开始生成</button>
+          </div>
+
+          <!-- Results -->
+          <div>
+            <div id="img-progress" style="display:none;margin-bottom:16px">
+              <div class="card" style="text-align:center;padding:32px">
+                <div class="spinner" style="margin:0 auto 12px"></div>
+                <div style="color:var(--text-secondary);font-size:14px" id="img-progress-text">正在生成中..</div>
+                <div class="progress" style="margin-top:12px"><div class="progress-bar indeterminate"></div></div>
+              </div>
+            </div>
+            <div class="gallery" id="img-gallery"></div>
+            <div class="empty-state" id="img-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              <p>输入 Prompt 开始创作</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════ PAGE: Video Generation ══════ -->
+      <div class="page" id="page-video">
+        <div class="grid-2">
+          <!-- Form -->
+          <div class="card" style="align-self:start">
+            <div class="card-header"><div class="card-title">视频创作</div></div>
+            <div class="form-group">
+              <label class="form-label">模式</label>
+              <select class="form-select" id="vid-mode" onchange="toggleVidMode()">
+                <option value="text">文生视频</option>
+                <option value="image">图生视频</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prompt</label>
+              <textarea class="form-textarea" id="vid-prompt" placeholder="描述你想生成的视频内容..." rows="4"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Negative Prompt</label>
+              <textarea class="form-textarea" id="vid-neg" placeholder="不希望出现的元素..." rows="2" style="min-height:60px"></textarea>
+            </div>
+            <div class="form-row-3">
+              <div class="form-group">
+                <label class="form-label">分辨率</label>
+                <select class="form-select" id="vid-resolution">
+                  <option value="1152x768">1152x768 (横版)</option>
+                  <option value="768x1152">768x1152 (竖版)</option>
+                  <option value="512x512">512x512 (方形)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">帧率</label>
+                <select class="form-select" id="vid-fps">
+                  <option value="24">24 FPS</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">时长</label>
+                <select class="form-select" id="vid-duration">
+                  <option value="5">5 秒</option>
+                  <option value="8">8 秒</option>
+                  <option value="10">10 秒</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" id="vid-upload-group" style="display:none">
+              <label class="form-label">上传图片</label>
+              <div class="upload-area" id="vid-upload-area" onclick="document.getElementById('vid-upload-input').click()">
+                <div id="vid-upload-text">点击或拖拽上传 jpg / png</div>
+                <img id="vid-upload-preview" style="display:none" />
+              </div>
+              <input type="file" id="vid-upload-input" accept="image/*" style="display:none" onchange="handleVidUpload(event)"/>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px" onclick="openImagePicker()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                  从生成历史选择
+                </button>
+              </div>
+            </div>
+
+            <!-- Image Picker Modal -->
+            <div id="img-picker-backdrop" style="display:none" class="modal-backdrop" onclick="closeImagePicker()">
+              <div class="modal" style="width:700px;max-height:80vh;padding:20px" onclick="event.stopPropagation()">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                  <h3 style="font-size:16px;font-weight:600">选择图片用于图生视频</h3>
+                  <button class="btn btn-ghost" onclick="closeImagePicker()">×</button>
+                </div>
+                <div class="gallery" id="img-picker-gallery" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;max-height:55vh;overflow-y:auto"></div>
+                <div id="img-picker-empty" style="text-align:center;padding:40px;color:var(--text-muted)">
+                  <p>暂无已生成的图片</p>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-block" id="vid-generate-btn" onclick="generateVideo()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              开始生成</button>
+          </div>
+
+          <!-- Task list + result -->
+          <div>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-header">
+                <div class="card-title">任务列表</div>
+                <span class="badge badge-info" id="vid-task-count">0 个任务</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>提示词</th><th>任务 ID</th><th>状态</th><th>进度</th><th>创建时间</th><th></th></tr></thead>
+                  <tbody id="vid-task-body"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="vid-empty" style="padding:30px">
+                <p>暂无视频任务</p>
+              </div>
+            </div>
+
+            <div id="vid-result" style="display:none">
+              <div class="video-result">
+                <video id="vid-player" controls></video>
+                <div class="actions">
+                  <button class="btn btn-secondary" onclick="openVideoExternal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    外部播放器                  </button>
+                  <button class="btn btn-secondary" onclick="downloadCurrentVideo()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    下载视频
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════ PAGE: History ══════ -->
+      <div class="page" id="page-history">
+        <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center">
+          <input class="form-input" id="hist-search" placeholder="搜索 Prompt / 模型 / 任务 ID" style="flex:1" oninput="loadHistory()"/>
+          <button class="btn btn-danger" onclick="clearHistory()">清空历史</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>预览</th><th>ID</th><th>类型</th><th>时间</th><th>Prompt</th><th>模型</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody id="hist-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="hist-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <p>暂无历史记录</p>
+        </div>
+      </div>
+
+      <!-- ══════ PAGE: Download ══════ -->
+      <div class="page" id="page-download">
+        <div class="card">
+          <div class="card-header"><div class="card-title">下载任务</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>预览</th><th>文件名</th><th>类型</th><th>进度</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="dl-body"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="dl-empty" style="padding:30px">
+            <p>暂无下载任务</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════ PAGE: Settings ══════ -->
+      <div class="page" id="page-settings">
+        <div class="card" style="max-width:560px">
+          <div class="card-header"><div class="card-title">API 配置</div></div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="form-input" id="set-api-key" type="password" placeholder="输入你的 API Key" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Base URL</label>
+            <input class="form-input" id="set-base-url" type="text" value="https://apihub.agnes-ai.com/v1" />
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()">保存配置</button>
+        </div>
+      </div>
+
+      <!-- ══════ PAGE: AI Chat ══════ -->
+      <div class="page" id="page-chat" style="padding:0">
+        <div class="chat-layout">
+          <div class="chat-sidebar">
+            <div class="chat-history-head">
+              <div>
+                <div class="chat-sidebar-title">历史对话</div>
+              </div>
+              <div class="chat-history-actions">
+                <button class="chat-icon-btn" type="button" onclick="clearChat()" title="新建对话" aria-label="新建对话">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+                <button class="chat-icon-btn" type="button" onclick="loadChatConversations()" title="刷新历史" aria-label="刷新历史">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 0 1-15.4 6.4L3 16M3 21v-5h5"/><path d="M3 12A9 9 0 0 1 18.4 5.6L21 8M21 3v5h-5"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="chat-conv-list" id="chat-conv-list">
+              <div style="text-align:center;padding:20px 8px;font-size:11px;color:var(--text-muted)">暂无保存的对话</div>
+            </div>
+          </div>
+          <div class="chat-container is-empty" style="flex:1">
+            <div class="chat-panel-toolbar">
+              <div>
+                <div class="chat-panel-title">Agnes-2.0-Flash</div>
+                <div class="chat-panel-subtitle">流式输出 &amp; 工具调用</div>
+              </div>
+              <button class="chat-settings-btn" type="button" onclick="openChatSettings()" title="对话设置" aria-label="对话设置">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.39 1.08V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.08-.39H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06A2 2 0 1 1 7.03 3.84l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .39-1.08V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.36.53.66.9.84.33.15.7.16 1.08.16H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+                <span>设置</span>
+              </button>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+              <div class="chat-welcome">
+                <div class="chat-welcome-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>
+                </div>
+                <div class="chat-welcome-title">Agnes-2.0-Flash</div>
+                <div class="chat-welcome-text">快速、高效的 AI 对话助手<br>支持多轮对话、流式输出和工具调用</div>
+              </div>
+            </div>
+            <div class="chat-input-area" style="flex-direction:column;gap:8px">
+              <div id="chat-image-preview-area" style="display:none;flex-wrap:wrap;gap:4px"></div>
+              <div style="display:flex;gap:12px;align-items:flex-end;width:100%">
+                <input type="file" id="chat-image-input" accept="image/*" style="display:none" onchange="handleChatImageUpload(event)" />
+                <button class="chat-upload-btn" onclick="document.getElementById('chat-image-input').click()" title="上传图片（图生图）">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                </button>
+                <textarea id="chat-input" rows="1" placeholder="输入消息... (Enter 发送, Shift+Enter 换行)" onkeydown="chatKeyDown(event)" style="flex:1"></textarea>
+                <button class="btn btn-primary" id="chat-send-btn" onclick="sendChatMessage()" style="min-width:80px;height:48px">发送</button>
+                <button class="btn btn-ghost" id="chat-stop-btn" onclick="stopChatStream()" style="min-width:60px;height:48px;display:none;color:var(--danger)">停止</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="chat-settings-backdrop" style="display:none" class="modal-backdrop" onclick="closeChatSettings()">
+        <div class="modal chat-settings-modal" onclick="event.stopPropagation()">
+          <div class="chat-settings-header">
+            <div>
+              <div class="chat-settings-title">对话设置</div>
+              <div class="chat-settings-subtitle">Agnes-2.0-Flash 参数</div>
+            </div>
+            <button class="chat-icon-btn" type="button" onclick="closeChatSettings()" title="关闭" aria-label="关闭对话设置">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="chat-settings-body">
+            <div class="form-group">
+              <label class="form-label">模型</label>
+              <select class="form-select" id="chat-model"><option value="agnes-2.0-flash">agnes-2.0-flash</option></select>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">温度 (Temperature)</label>
+                <input class="form-input" type="number" id="chat-temperature" value="0.7" min="0" max="1.5" step="0.1" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Top P</label>
+                <input class="form-input" type="number" id="chat-top-p" value="0.95" min="0" max="1" step="0.05" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">最大 Token 数</label>
+              <input class="form-input" type="number" id="chat-max-tokens" value="4096" min="256" max="65536" step="256" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">System Prompt</label>
+              <textarea class="form-textarea chat-system-textarea" id="chat-system-prompt" rows="10" placeholder="可选：设定 AI 角色和行为指令">You are a helpful AI assistant powered by Agnes-2.0-Flash. You can generate images and videos using the available tools. When the user asks to create, draw, or generate visual content, use the appropriate tool (generate_image or generate_video) with a detailed English prompt.
+
+IMPORTANT - Image-to-Image (img2img) workflow: When the user uploads a reference image and asks you to recreate, transform, restyle, or generate something similar, you should:
+1. Carefully analyze the uploaded image (composition, subject, colors, style, mood)
+2. Create a very detailed English prompt that describes a NEW image inspired by the reference, preserving key elements like composition, subject pose, color palette, and mood
+3. Call the generate_image tool with your detailed prompt
+4. The user wants the output to be visually similar to their reference but generated fresh
+
+Always respond in the same language as the user.</textarea>
+            </div>
+          </div>
+          <div class="chat-settings-footer">
+            <div>
+              <div>Context: 256K tokens</div>
+              <div>Max Output: 65.5K tokens</div>
+            </div>
+            <button class="btn btn-primary" type="button" onclick="closeChatSettings()">完成</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Toast container -->
+<div class="toast-container" id="toasts"></div>
+
+<!-- ═══════════════════════════════════-->
+<!-- ════════════ JavaScript ════════════ -->
+<!-- ═══════════════════════════════════-->
+<script>
+const API = '';
+let currentVideoUrl = '';
+let _currentVideoTaskId = '';
+let videoPollTimer = null;
+let imageBase64 = '';
+let pollInterval = 3000;  // adaptive: 3s default, 5s when only queued
+let pageVisible = true;
+
+// Page visibility: pause polling when tab is hidden
+document.addEventListener('visibilitychange', () => {
+  pageVisible = !document.hidden;
+  if(pageVisible && videoPollTimer === null) {
+    // Page became visible → restart polling if there are active tasks
+    loadVideoTasks();
+    startVideoPolling();
+  }
+});
+
+// ── Utilities ──
+function $(id){ return document.getElementById(id) }
+const THEME_KEY = 'agnes-ui-theme';
+
+function applyUiTheme(theme){
+  const normalized = theme === 'light' ? 'light' : 'dark';
+  document.body.classList.toggle('theme-light', normalized === 'light');
+  document.body.classList.toggle('theme-dark', normalized === 'dark');
+  document.documentElement.style.colorScheme = normalized === 'light' ? 'light' : 'dark';
+
+  const label = $('theme-toggle-label');
+  const button = $('theme-toggle');
+  if(label) label.textContent = normalized === 'light' ? '白色' : '黑色';
+  if(button){
+    button.setAttribute('aria-pressed', normalized === 'light' ? 'true' : 'false');
+    button.title = normalized === 'light' ? '当前白色模式，点击切换黑色模式' : '当前黑色模式，点击切换白色模式';
+  }
+}
+
+function initUiTheme(){
+  let saved = 'dark';
+  try{
+    saved = localStorage.getItem(THEME_KEY) || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  }catch(e){}
+  applyUiTheme(saved);
+}
+
+function toggleUiTheme(){
+  const next = document.body.classList.contains('theme-light') ? 'dark' : 'light';
+  try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
+  document.body.classList.add('theme-transitioning');
+  applyUiTheme(next);
+  setTimeout(()=> document.body.classList.remove('theme-transitioning'), 350);
+}
+
+function openChatSettings(){
+  const backdrop = $('chat-settings-backdrop');
+  if(!backdrop) return;
+  backdrop.style.display = 'flex';
+  const first = $('chat-model');
+  if(first) setTimeout(()=>first.focus(), 20);
+}
+
+function closeChatSettings(){
+  const backdrop = $('chat-settings-backdrop');
+  if(backdrop) backdrop.style.display = 'none';
+}
+
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    const backdrop = $('chat-settings-backdrop');
+    if(backdrop && backdrop.style.display !== 'none'){
+      closeChatSettings();
+    }
+  }
+});
+
+function fmtTime(t){
+  if(!t) return '';
+  if(typeof t === 'number' || (typeof t === 'string' && /^\d{10,}$/.test(t))){
+    return new Date(parseInt(t)*1000).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  }
+  if(typeof t === 'string' && t.includes('T')){
+    return new Date(t).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  }
+  return String(t);
+}
+function toast(msg, type='success'){
+  const c = $('toasts');
+  const d = document.createElement('div');
+  d.className = 'toast ' + type;
+  d.innerHTML = `<span class="dot"></span>${msg}`;
+  c.appendChild(d);
+  setTimeout(()=>{ d.style.opacity='0'; d.style.transform='translateX(40px)'; setTimeout(()=>d.remove(),300) }, 3500);
+}
+async function api(path, opts={}){
+  const res = await fetch(API + path, {
+    headers:{'Content-Type':'application/json',...(opts.headers||{})},
+    ...opts
+  });
+  if(!res.ok){
+    const err = await res.json().catch(()=>({detail:res.statusText}));
+    throw new Error(err.detail || err.message || '请求失败');
+  }
+  return res.json();
+}
+
+// ── Navigation ──
+function switchPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const page = $('page-' + name);
+  const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
+  if(page) page.classList.add('active');
+  if(nav) nav.classList.add('active');
+  const titles = {image:'图片生成',video:'视频生成',chat:'AI 对话',history:'历史记录',download:'下载中心',settings:'设置'};
+  $('topbar-title').textContent = titles[name] || name;
+  if(name==='history') loadHistory();
+  if(name==='download') loadDownloads();
+  if(name==='video') loadVideoTasks();
+}
+
+// ── Config ──
+async function loadConfig(){
+  try{
+    const d = await api('/api/config');
+    $('set-api-key').value = d.api_key || '';
+    $('set-base-url').value = d.base_url || '';
+  }catch(e){}
+}
+async function saveConfig(){
+  const key = $('set-api-key').value;
+  const url = $('set-base-url').value;
+  try{
+    await api('/api/config',{method:'POST',body:JSON.stringify({api_key:key,base_url:url})});
+    toast('配置已保存');
+    $('set-api-key').value = key;
+    $('set-base-url').value = url;
+  }catch(e){ toast(e.message,'error') }
+}
+
+// ══════ Image Generation ══════
+const IMAGE_MODEL_SIZES = {
+  'agnes-image-2.0-flash': [
+    {v:'512x512',l:'512 x 512 (方形)'},
+    {v:'768x768',l:'768 x 768 (方形)'},
+    {v:'1024x1024',l:'1024 x 1024 (方形)'},
+    {v:'768x1152',l:'768 x 1152 (竖版)'},
+    {v:'1024x1536',l:'1024 x 1536 (竖版)'},
+  ],
+  'agnes-image-2.1-flash': [
+    {v:'512x512',l:'512 x 512 (方形)'},
+    {v:'1152x768',l:'1152 x 768 (横版)'},
+    {v:'1024x1536',l:'1024 x 1536 (竖版)'},
+  ],
+};
+
+function updateImageSizes(){
+  const model = $('img-model').value;
+  const sel = $('img-size');
+  const prev = sel.value;
+  const sizes = IMAGE_MODEL_SIZES[model] || IMAGE_MODEL_SIZES['agnes-image-2.1-flash'];
+  sel.innerHTML = sizes.map(s=>'<option value="'+s.v+'">'+s.l+'</option>').join('');
+  // Restore previous selection if still available
+  if(sizes.some(s=>s.v===prev)) sel.value = prev;
+}
+
+async function generateImages(){
+  const prompt = $('img-prompt').value.trim();
+  if(!prompt){ toast('请输入 Prompt','error'); return }
+  const btn = $('img-generate-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 生成中...';
+  $('img-progress').style.display = 'block';
+  $('img-empty').style.display = 'none';
+
+  try{
+    const d = await api('/api/image/generate',{
+      method:'POST',
+      body:JSON.stringify({
+        prompt,
+        negative_prompt: $('img-neg').value.trim(),
+        model: $('img-model').value,
+        size: $('img-size').value,
+        count: parseInt($('img-count').value),
+        seed: $('img-seed').value.trim(),
+      })
+    });
+    renderGallery(d.images || []);
+    toast(`成功生成 ${d.images.length} 张图片`);
+  }catch(e){
+    toast(e.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> 开始生成';
+    $('img-progress').style.display = 'none';
+  }
+}
+
+function renderGallery(images){
+  const g = $('img-gallery');
+  g.innerHTML = '';
+  $('img-empty').style.display = images.length ? 'none' : 'flex';
+  images.forEach((img,i) => {
+    const src = img.local_path ? `/api/file?path=${encodeURIComponent(img.local_path)}` : img.url;
+    const div = document.createElement('div');
+    div.className = 'gallery-item';
+    div.innerHTML = `
+      <img src="${src}" loading="lazy" alt="Generated image" />
+      <div class="overlay">
+        <button class="btn btn-ghost" style="color:#fff" onclick="event.stopPropagation();openPreview('${src}')">预览</button>
+        <button class="btn btn-ghost" style="color:#fff" onclick="event.stopPropagation();downloadImage('${img.url}','image_${i+1}.png')">下载</button>
+      </div>`;
+    div.onclick = ()=> openPreview(src);
+    g.appendChild(div);
+  });
+}
+
+function openPreview(src){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  const isVideo = /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(src) || src.includes('/api/video/stream/');
+  if(isVideo){
+    backdrop.innerHTML = `<div class="modal"><video src="${src}" controls autoplay style="max-width:85vw;max-height:85vh;display:block;border-radius:var(--radius)"></video></div>`;
+  } else {
+    backdrop.innerHTML = `<div class="modal"><img src="${src}" /></div>`;
+  }
+  backdrop.onclick = ()=> backdrop.remove();
+  document.body.appendChild(backdrop);
+}
+
+function downloadImage(url, name){
+  if(!url){ toast('没有下载链接','error'); return }
+  api('/api/download',{method:'POST',body:JSON.stringify({url,file_name:name})}).then(()=>{
+    toast('已添加到下载队列');
+  }).catch(e=>toast(e.message,'error'));
+}
+
+// ══════ Video Generation ══════
+function toggleVidMode(){
+  const isImage = $('vid-mode').value === 'image';
+  $('vid-upload-group').style.display = isImage ? 'block' : 'none';
+}
+
+// Drag and drop
+const uploadArea = $('vid-upload-area');
+if(uploadArea){
+  uploadArea.addEventListener('dragover', e=>{e.preventDefault();uploadArea.classList.add('dragover')});
+  uploadArea.addEventListener('dragleave', ()=>uploadArea.classList.remove('dragover'));
+  uploadArea.addEventListener('drop', e=>{
+    e.preventDefault();uploadArea.classList.remove('dragover');
+    if(e.dataTransfer.files.length) handleVidUploadFile(e.dataTransfer.files[0]);
+  });
+}
+
+async function handleVidUpload(event){
+  if(event.target.files.length) handleVidUploadFile(event.target.files[0]);
+}
+async function handleVidUploadFile(file){
+  const fd = new FormData();
+  fd.append('file', file);
+  try{
+    const d = await fetch('/api/upload-image',{method:'POST',body:fd}).then(r=>r.json());
+    imageBase64 = d.data_uri || '';
+    $('vid-upload-preview').src = URL.createObjectURL(file);
+    $('vid-upload-preview').style.display = 'block';
+    $('vid-upload-text').textContent = file.name;
+    toast('图片已上传');
+  }catch(e){ toast('上传失败: '+e.message,'error') }
+}
+
+// ── Image Picker (select from generated history) ──
+async function openImagePicker(){
+  $('img-picker-backdrop').style.display = 'flex';
+  const gallery = $('img-picker-gallery');
+  gallery.innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
+  $('img-picker-empty').style.display = 'none';
+  try{
+    const d = await api('/api/image/history');
+    const images = d.images || [];
+    gallery.innerHTML = '';
+    if(!images.length){
+      $('img-picker-empty').style.display = 'block';
+      return;
+    }
+    images.forEach(img => {
+      const src = img.local_path
+        ? `/api/file?path=${encodeURIComponent(img.local_path)}`
+        : img.url;
+      const div = document.createElement('div');
+      div.className = 'gallery-item';
+      div.style.aspectRatio = '1';
+      div.title = img.prompt || '';
+      div.innerHTML = `<img src="${src}" loading="lazy" /><div class="overlay"><span style="color:#fff;font-size:11px">${(img.prompt||'').slice(0,30)}</span></div>`;
+      div.onclick = ()=> selectPickerImage(src, img);
+      gallery.appendChild(div);
+    });
+  }catch(e){
+    gallery.innerHTML = '';
+    $('img-picker-empty').style.display = 'block';
+    toast(e.message,'error');
+  }
+}
+
+function closeImagePicker(){
+  $('img-picker-backdrop').style.display = 'none';
+}
+
+async function selectPickerImage(src, imgData){
+  closeImagePicker();
+  // If it's a local file, upload it to get base64
+  if(imgData.local_path){
+    try{
+      // Fetch the file and convert to base64 via the upload endpoint
+      const blob = await fetch(src).then(r=>r.blob());
+      const fd = new FormData();
+      fd.append('file', blob, 'selected.png');
+      const d = await fetch('/api/upload-image',{method:'POST',body:fd}).then(r=>r.json());
+      imageBase64 = d.data_uri || '';
+      $('vid-upload-preview').src = src;
+      $('vid-upload-preview').style.display = 'block';
+      $('vid-upload-text').textContent = (imgData.prompt||'').slice(0,30) + ' (从历史选择)';
+      toast('已从历史中选择图片');
+    }catch(e){ toast('选择图片失败: '+e.message,'error') }
+  } else if(imgData.url){
+    // Use URL directly - server will handle it
+    imageBase64 = imgData.url;
+    $('vid-upload-preview').src = src;
+    $('vid-upload-preview').style.display = 'block';
+    $('vid-upload-text').textContent = (imgData.prompt||'').slice(0,30) + ' (从历史选择)';
+    toast('已从历史中选择图片');
+  }
+}
+
+async function generateVideo(){
+  const prompt = $('vid-prompt').value.trim();
+  if(!prompt){ toast('请输入 Prompt','error'); return }
+  const mode = $('vid-mode').value;
+  if(mode==='image' && !imageBase64){ toast('请上传图片','error'); return }
+
+  const btn = $('vid-generate-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 创建中...';
+
+  try{
+    const d = await api('/api/video/create',{
+      method:'POST',
+      body:JSON.stringify({
+        prompt,
+        negative_prompt: $('vid-neg').value.trim(),
+        mode,
+        resolution: $('vid-resolution').value,
+        fps: parseInt($('vid-fps').value),
+        duration_seconds: parseInt($('vid-duration').value),
+        image_base64: imageBase64,
+      })
+    });
+    toast('视频任务已创建 ' + d.task_id);
+    loadVideoTasks();
+    startVideoPolling();
+  }catch(e){
+    toast(e.message,'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> 开始生成';
+  }
+}
+
+async function loadVideoTasks(){
+  try{
+    const d = await api('/api/video/tasks');
+    renderVideoTasks(d.tasks || []);
+  }catch(e){}
+}
+
+function renderVideoTasks(tasks){
+  const body = $('vid-task-body');
+  body.innerHTML = '';
+  $('vid-empty').style.display = tasks.length ? 'none' : 'flex';
+  $('vid-task-count').textContent = tasks.length + ' 个任务';
+  tasks.sort((a,b)=> (fmtTime(b.created_at)||'').localeCompare(fmtTime(a.created_at)||''));
+  tasks.forEach(t => {
+    const status = t.status || 'queued';
+    const progress = t.progress || 0;
+    const isStuck = (status === 'queued' || status === 'in_progress') && progress === 0;
+    const badgeClass = {completed:'badge-success',failed:'badge-danger',in_progress:'badge-warning',queued:'badge-muted'}[status]||'badge-muted';
+    const statusText = {completed:'已完成',failed:'失败',in_progress:'生成中',queued:'队列中'}[status]||status;
+    const tr = document.createElement('tr');
+    tr.style.cursor = status === 'completed' ? 'pointer' : 'default';
+    if(status === 'completed') tr.onclick = ()=> selectVideoTask(t);
+    tr.innerHTML = `
+      <td class="truncate" title="${(t.prompt||'').replace(/"/g,'&quot;')}" style="max-width:200px;font-size:13px;color:var(--text-primary)">${t.prompt ? t.prompt.length > 60 ? t.prompt.slice(0,60)+'…' : t.prompt : '<span style="color:var(--text-muted)">无</span>'}</td>
+      <td class="truncate" title="${t.task_id}">${t.task_id}</td>
+      <td>
+        <span class="badge ${badgeClass}">${statusText}</span>
+        ${t.error ? `<div class="task-error" style="font-size:11px;color:var(--danger);margin-top:4px;max-width:220px;word-break:break-word;line-height:1.4;cursor:help" onclick="alert(this.title)" title="${t.error.replace(/"/g,'&quot;').replace(/</g,'&lt;')}">${t.error.length > 120 ? t.error.slice(0,120)+'…' : t.error}</div>` : ''}
+      </td>
+      <td style="min-width:120px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="progress" style="flex:1"><div class="progress-bar ${status==='completed'?'success':''}" style="width:${progress}%"></div></div>
+          <span style="font-size:12px;color:var(--text-muted)">${progress}%</span>
+        </div>
+      </td>
+      <td style="font-size:12px;color:var(--text-muted)">${fmtTime(t.created_at)}</td>
+      <td>
+        ${isStuck ? `<button class="btn btn-ghost" style="color:var(--danger);font-size:11px;padding:4px 8px" onclick="event.stopPropagation();cancelTask('${t.task_id}')">取消</button>` : ''}
+      </td>`;
+    body.appendChild(tr);
+  });
+}
+
+// ── Helper: get playable video URL (use server proxy for GCS) ──
+function playableVideoUrl(taskId, url){
+  if(!url) return '';
+  // Google Cloud Storage is blocked in some regions, use server-side proxy
+  if(url.includes('storage.googleapis.com')){
+    return '/api/video/stream/' + taskId;
+  }
+  return url;
+}
+
+function selectVideoTask(t){
+  if(t.status === 'completed' && t.result_url){
+    currentVideoUrl = t.result_url;
+    _currentVideoTaskId = t.task_id;
+    const player = $('vid-player');
+    player.src = playableVideoUrl(t.task_id, t.result_url);
+    $('vid-result').style.display = 'block';
+  }
+}
+
+// ── WebSocket for video task push ──
+let videoWs = null;
+
+function connectVideoWs(){
+  if(videoWs && (videoWs.readyState === WebSocket.OPEN || videoWs.readyState === WebSocket.CONNECTING)) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  videoWs = new WebSocket(proto + '//' + location.host + '/ws/video-tasks');
+  videoWs.onopen = () => {
+    // Send periodic pings to keep connection alive
+    videoWs._pingTimer = setInterval(() => {
+      if(videoWs.readyState === WebSocket.OPEN) videoWs.send('ping');
+    }, 30000);
+  };
+  videoWs.onmessage = (e) => {
+    try{
+      const msg = JSON.parse(e.data);
+      if(msg.type === 'task_completed' && msg.video_url){
+        currentVideoUrl = msg.video_url;
+        _currentVideoTaskId = msg.task_id;
+        $('vid-player').src = playableVideoUrl(msg.task_id, msg.video_url);
+        $('vid-result').style.display = 'block';
+        toast('视频生成完成');
+        loadVideoTasks();
+      }
+      if(msg.type === 'task_failed' && msg.error){
+        toast('任务失败: ' + msg.error, 'error');
+        loadVideoTasks();
+      }
+    }catch(err){}
+  };
+  videoWs.onclose = () => {
+    if(videoWs._pingTimer) clearInterval(videoWs._pingTimer);
+    // Reconnect after 3 seconds
+    setTimeout(connectVideoWs, 3000);
+  };
+  videoWs.onerror = () => {
+    videoWs.close();
+  };
+}
+
+function startVideoPolling(){
+  if(videoPollTimer) clearInterval(videoPollTimer);
+  let consecutiveErrors = 0;
+
+  const doPoll = async () => {
+    // Skip polling when page is not visible
+    if(!pageVisible) return;
+
+    try{
+      const d = await api('/api/video/poll-all');
+      const results = d.results || [];
+      consecutiveErrors = 0; // reset on success
+
+      // ── Use merged task list (no separate loadVideoTasks call) ──
+      if(d.tasks) renderVideoTasks(d.tasks);
+
+      if(results.length === 0){
+        clearInterval(videoPollTimer);
+        videoPollTimer = null;
+        return;
+      }
+
+      let hasActive = false;
+      let hasProgressing = false;
+
+      results.forEach(r => {
+        if(r.status !== 'completed' && r.status !== 'failed' && r.status !== 'poll_error') {
+          hasActive = true;
+          if(r.status === 'in_progress' && r.progress > 0) hasProgressing = true;
+        }
+        // Only show toast for NEWLY completed/failed (server-side dedup)
+        if(r.newly_completed && r.video_url){
+          currentVideoUrl = r.video_url;
+          _currentVideoTaskId = r.task_id;
+          $('vid-player').src = playableVideoUrl(r.task_id, r.video_url);
+          $('vid-result').style.display = 'block';
+          toast('视频生成完成');
+        }
+        if(r.newly_failed && r.error){
+          toast('任务失败: ' + r.error, 'error');
+        }
+        // Surface poll errors
+        if(r.status === 'poll_error'){
+          console.warn('Poll error for', r.task_id, r.error);
+        }
+      });
+
+      // No more separate loadVideoTasks() call → merged above
+
+      if(!hasActive){
+        clearInterval(videoPollTimer);
+        videoPollTimer = null;
+        return;
+      }
+
+      // Adaptive interval: faster when progressing, slower when just queued
+      const newInterval = hasProgressing ? 3000 : 5000;
+      if(newInterval !== pollInterval){
+        pollInterval = newInterval;
+        // Restart with new interval
+        clearInterval(videoPollTimer);
+        videoPollTimer = setInterval(doPoll, pollInterval);
+      }
+    }catch(e){
+      consecutiveErrors++;
+      if(consecutiveErrors === 1){
+        toast('轮询出错: ' + e.message, 'error');
+      } else if(consecutiveErrors >= 5){
+        clearInterval(videoPollTimer);
+        videoPollTimer = null;
+        toast('轮询已停止：连续多次请求失败，请检查 API Key 和网络', 'error');
+        return;
+      }
+      // Slow down on errors
+      pollInterval = Math.min(pollInterval + 2000, 15000);
+      clearInterval(videoPollTimer);
+      videoPollTimer = setInterval(doPoll, pollInterval);
+    }
+  };
+
+  pollInterval = 3000;
+  videoPollTimer = setInterval(doPoll, pollInterval);
+}
+
+async function cancelTask(taskId){
+  if(!confirm('确定要取消这个任务吗?')) return;
+  try{
+    await api('/api/video/cancel/' + taskId, {method:'POST'});
+    toast('任务已取消');
+    loadVideoTasks();
+  }catch(e){ toast('取消失败: '+e.message,'error') }
+}
+
+function openVideoExternal(){
+  if(!currentVideoUrl){ toast('没有视频链接','error'); return }
+  // Use server proxy for GCS URLs
+  const url = currentVideoUrl.includes('storage.googleapis.com')
+    ? '/api/video/stream/' + _currentVideoTaskId
+    : currentVideoUrl;
+  window.open(url, '_blank');
+}
+
+function downloadCurrentVideo(){
+  if(!currentVideoUrl){ toast('没有视频链接','error'); return }
+  api('/api/download',{method:'POST',body:JSON.stringify({url:currentVideoUrl,file_name:'agnes_video.mp4'})}).then(()=>{
+    toast('已添加到下载队列');
+  }).catch(e=>toast(e.message,'error'));
+}
+
+// ══════ History ══════
+async function loadHistory(){
+  const q = $('hist-search').value.trim();
+  try{
+    const d = await api('/api/history?q=' + encodeURIComponent(q));
+    renderHistory(d.records || []);
+  }catch(e){}
+}
+
+function renderHistory(records){
+  const body = $('hist-body');
+  body.innerHTML = '';
+  $('hist-empty').style.display = records.length ? 'none' : 'flex';
+  records.forEach(r => {
+    const kind = r.kind === 'video' ? '视频' : '图片';
+    const status = r.status || '';
+    const statusText = {completed:'已完成',failed:'失败',in_progress:'生成中',queued:'队列中'}[status]||status;
+    const badgeClass = {completed:'badge-success',failed:'badge-danger',in_progress:'badge-warning'}[status]||'badge-muted';
+
+    // Build preview thumbnail
+    let previewHtml = '';
+    if(r.kind === 'image'){
+      const urls = (r.result_url||'').split(',').map(s=>s.trim()).filter(Boolean);
+      const paths = (r.local_path||'').split(',').map(s=>s.trim()).filter(Boolean);
+      let imgSrc = '';
+      if(paths[0]) imgSrc = '/api/file?path=' + encodeURIComponent(paths[0]);
+      else if(urls[0]) imgSrc = urls[0];
+      if(imgSrc){
+        const countBadge = urls.length > 1 ? `<span class="preview-count">${urls.length}</span>` : '';
+        previewHtml = `<div class="preview-thumb-wrap"><div class="preview-thumb" onclick="openPreview('${imgSrc}')"><img src="${imgSrc}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'" /></div>${countBadge}</div>`;
+      } else {
+        previewHtml = '<div class="preview-thumb"><span class="thumb-placeholder">无预览</span></div>';
+      }
+    } else {
+      const videoSrc = (r.local_path && r.local_path.trim())
+        ? '/api/file?path=' + encodeURIComponent(r.local_path.trim())
+        : (r.result_url || '');
+      if(videoSrc){
+        const streamSrc = videoSrc.includes('storage.googleapis.com')
+          ? '/api/video/stream/' + (r.task_id||'')
+          : videoSrc;
+        previewHtml = `<div class="preview-thumb" onclick="openPreview('${streamSrc}')"><video src="${streamSrc}" preload="metadata" muted onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'"></video></div>`;
+      } else {
+        previewHtml = '<div class="preview-thumb"><span class="thumb-placeholder">无预览</span></div>';
+      }
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding:6px 12px">${previewHtml}</td>
+      <td>${r.id}</td>
+      <td><span class="badge ${r.kind==='video'?'badge-info':'badge-muted'}">${kind}</span></td>
+      <td style="font-size:12px;color:var(--text-muted)">${fmtTime(r.created_at)}</td>
+      <td class="truncate">${r.prompt||''}</td>
+      <td style="font-size:12px">${r.model||''}</td>
+      <td><span class="badge ${badgeClass}">${statusText}</span></td>
+      <td>
+        ${r.result_url ? `<button class="btn btn-ghost" onclick="openPreview('${r.result_url.split(',')[0].trim()}')">预览</button>` : ''}
+        ${r.result_url ? `<button class="btn btn-ghost" onclick="window.open('${r.result_url.split(',')[0].trim()}'.includes('storage.googleapis.com')?'/api/video/stream/${r.task_id||''}':'${r.result_url.split(',')[0].trim()}','_blank')">下载</button>` : ''}
+        <button class="btn btn-ghost" style="color:var(--danger)" onclick="deleteHistory('${r.kind}',${r.id})">删除</button>
+      </td>`;
+    body.appendChild(tr);
+  });
+}
+
+async function deleteHistory(kind, id){
+  try{
+    await api(`/api/history/${kind}/${id}`,{method:'DELETE'});
+    toast('已删除');
+    loadHistory();
+  }catch(e){ toast(e.message,'error') }
+}
+
+async function clearHistory(){
+  if(!confirm('确定要清空全部历史吗?')) return;
+  try{
+    await api('/api/history',{method:'DELETE'});
+    toast('历史已清空');
+    loadHistory();
+  }catch(e){ toast(e.message,'error') }
+}
+
+// ══════ Downloads ══════
+async function loadDownloads(){
+  try{
+    const d = await api('/api/downloads');
+    renderDownloads(d.downloads || []);
+  }catch(e){}
+}
+
+function renderDownloads(list){
+  const body = $('dl-body');
+  body.innerHTML = '';
+  $('dl-empty').style.display = list.length ? 'none' : 'flex';
+  list.forEach(dl => {
+    const statusText = {queued:'等待中',downloading:'下载中',completed:'已完成',failed:'失败',paused:'已暂停'}[dl.status]||dl.status;
+    const badgeClass = {completed:'badge-success',failed:'badge-danger',downloading:'badge-warning',paused:'badge-info'}[dl.status]||'badge-muted';
+    const progress = dl.progress || 0;
+
+    // Build preview thumbnail
+    let previewHtml = '';
+    if(dl.status === 'completed' && dl.save_path){
+      const fileSrc = '/api/file?path=' + encodeURIComponent(dl.save_path);
+      if(dl.file_type === 'image'){
+        previewHtml = `<div class="preview-thumb" onclick="openPreview('${fileSrc}')"><img src="${fileSrc}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'" /></div>`;
+      } else {
+        previewHtml = `<div class="preview-thumb" onclick="openPreview('${fileSrc}')"><video src="${fileSrc}" preload="metadata" muted onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'"></video></div>`;
+      }
+    } else if(dl.url){
+      if(dl.file_type === 'image'){
+        previewHtml = `<div class="preview-thumb" onclick="openPreview('${dl.url}')"><img src="${dl.url}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载中</span>'" /></div>`;
+      } else {
+        previewHtml = `<div class="preview-thumb"><span class="thumb-placeholder">下载中</span></div>`;
+      }
+    } else {
+      previewHtml = '<div class="preview-thumb"><span class="thumb-placeholder">无预览</span></div>';
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding:6px 12px">${previewHtml}</td>
+      <td class="truncate">${dl.file_name||''}</td>
+      <td>${dl.file_type||''}</td>
+      <td style="min-width:100px">
+        <div class="progress"><div class="progress-bar ${dl.status==='completed'?'success':''}" style="width:${progress}%"></div></div>
+      </td>
+      <td><span class="badge ${badgeClass}">${statusText}</span></td>
+      <td><button class="btn btn-ghost" style="color:var(--danger)" onclick="deleteDownload(${dl.id})">删除</button></td>`;
+    body.appendChild(tr);
+  });
+}
+
+async function deleteDownload(id){
+  try{
+    await api(`/api/download/${id}`,{method:'DELETE'});
+    toast('已删除');
+    loadDownloads();
+  }catch(e){ toast(e.message,'error') }
+}
+
+// ══════ AI Chat (Agnes-2.0-Flash) ══════
+let chatConversation = [];   // [{role, content}]
+let chatAbortCtrl = null;
+let chatStreaming = false;
+let currentConversationId = null;  // null = new/unsaved conversation
+let chatPendingImages = [];  // [{dataUri, file}] ← images queued for next message
+
+function chatKeyDown(e){
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendChatMessage();
+  }
+}
+
+// ── Chat Image Upload (for img2img) ──
+
+function handleChatImageUpload(event){
+  const files = event.target.files;
+  if(!files.length) return;
+  for(const file of files){
+    if(!file.type.startsWith('image/')) continue;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUri = e.target.result;
+      chatPendingImages.push({dataUri, file});
+      renderChatImagePreview();
+    };
+    reader.readAsDataURL(file);
+  }
+  // Reset input so same file can be selected again
+  event.target.value = '';
+}
+
+function renderChatImagePreview(){
+  const area = $('chat-image-preview-area');
+  area.innerHTML = '';
+  if(!chatPendingImages.length){
+    area.style.display = 'none';
+    return;
+  }
+  area.style.display = 'flex';
+  chatPendingImages.forEach((img, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-image-preview';
+    wrap.innerHTML = `<img src="${img.dataUri}" alt="preview" /><button class="remove-img" onclick="removeChatImage(${idx})" title="移除">x</button>`;
+    area.appendChild(wrap);
+  });
+}
+
+function removeChatImage(idx){
+  chatPendingImages.splice(idx, 1);
+  renderChatImagePreview();
+}
+
+function clearChatImages(){
+  chatPendingImages = [];
+  renderChatImagePreview();
+}
+
+function chatWelcomeHtml(){
+  return `
+    <div class="chat-welcome">
+      <div class="chat-welcome-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>
+      </div>
+      <div class="chat-welcome-title">Agnes-2.0-Flash</div>
+      <div class="chat-welcome-text">快速、高效的 AI 对话助手<br>支持多轮对话、流式输出和工具调用</div>
+    </div>`;
+}
+
+function removeChatWelcome(container){
+  const welcome = container.querySelector('.chat-welcome');
+  if(welcome) welcome.remove();
+}
+
+function scrollChatToBottom(){
+  const container = $('chat-messages');
+  if(!container) return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+  });
+}
+
+function updateChatLayoutState(){
+  const messages = $('chat-messages');
+  const panel = document.querySelector('#page-chat .chat-container');
+  const page = $('page-chat');
+  if(!messages || !panel) return;
+  const hasMessages = !!messages.querySelector('.chat-msg');
+  panel.classList.toggle('has-messages', hasMessages);
+  panel.classList.toggle('is-empty', !hasMessages);
+  if(page) page.classList.toggle('chat-has-messages', hasMessages);
+}
+
+function resetChatWelcome(){
+  const messages = $('chat-messages');
+  if(!messages) return;
+  messages.innerHTML = chatWelcomeHtml();
+  updateChatLayoutState();
+}
+
+// Auto-resize textarea
+document.addEventListener('DOMContentLoaded', () => {
+  const ta = $('chat-input');
+  if(ta){
+    ta.addEventListener('input', () => {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+    });
+  }
+});
+
+function addChatBubble(role, content, imageUrls){
+  const container = $('chat-messages');
+  removeChatWelcome(container);
+
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (role === 'user' ? 'user' : 'assistant');
+  const roleLabel = role === 'user' ? '你' : 'Agnes-2.0-Flash';
+  let imagesHtml = '';
+  if(imageUrls && imageUrls.length){
+    imagesHtml = imageUrls.map(u => `<img class="chat-img-in-msg" src="${u}" alt="uploaded image" />`).join('');
+  }
+  div.innerHTML = `<div class="msg-role">${roleLabel}</div><div class="msg-bubble">${imagesHtml}${escapeHtml(content)}</div>`;
+  container.appendChild(div);
+  updateChatLayoutState();
+  scrollChatToBottom();
+  return div;
+}
+
+function addChatError(msg){
+  const container = $('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg error';
+  div.innerHTML = `<div class="msg-role">错误</div><div class="msg-bubble">${escapeHtml(msg)}</div>`;
+  container.appendChild(div);
+  updateChatLayoutState();
+  scrollChatToBottom();
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function sendChatMessage(){
+  const input = $('chat-input');
+  const text = input.value.trim();
+  const hasImages = chatPendingImages.length > 0;
+  if((!text && !hasImages) || chatStreaming) return;
+
+  // Build user message content (multimodal if images present)
+  let userContent;
+  let conversationEntry;  // What gets stored in chatConversation for the API
+  if(hasImages){
+    // Multimodal: array of content parts
+    const parts = [];
+    for(const img of chatPendingImages){
+      parts.push({type:'image_url', image_url:{url: img.dataUri}});
+    }
+    if(text) parts.push({type:'text', text: text});
+    else parts.push({type:'text', text: '请分析这张图片并根据它生成一张相似的图片。'});
+    userContent = parts;
+    // Store a serializable version for conversation history
+    conversationEntry = {role:'user', content: parts.map(p => {
+      if(p.type === 'image_url') return {type:'image_url', image_url:{url: p.image_url.url}};
+      return p;
+    })};
+  } else {
+    userContent = text;
+    conversationEntry = {role:'user', content: text};
+  }
+
+  // Add user message to conversation
+  chatConversation.push(conversationEntry);
+
+  // Display user bubble (with images if any)
+  const displayText = hasImages
+    ? (text || '请分析这张图片并根据它生成一张相似的图片。')
+    : text;
+  addChatBubble('user', displayText, hasImages ? chatPendingImages.map(i=>i.dataUri) : null);
+
+  input.value = '';
+  input.style.height = 'auto';
+  clearChatImages();  // Clear pending images and preview
+
+  // Build messages array with system prompt
+  const sysPrompt = $('chat-system-prompt').value.trim();
+  const messages = [];
+  if(sysPrompt) messages.push({role:'system', content:sysPrompt});
+  messages.push(...chatConversation);
+
+  // UI state
+  chatStreaming = true;
+  $('chat-send-btn').style.display = 'none';
+  $('chat-stop-btn').style.display = '';
+
+  // Create assistant bubble for streaming
+  const container = $('chat-messages');
+  removeChatWelcome(container);
+
+  const assistantDiv = document.createElement('div');
+  assistantDiv.className = 'chat-msg assistant';
+  assistantDiv.innerHTML = '<div class="msg-role">Agnes-2.0-Flash</div><div class="msg-bubble"><span class="cursor-blink"></span></div>';
+  container.appendChild(assistantDiv);
+  updateChatLayoutState();
+  const bubble = assistantDiv.querySelector('.msg-bubble');
+  scrollChatToBottom();
+
+  let accumulated = '';
+  chatAbortCtrl = new AbortController();
+
+  try{
+    const res = await fetch(API + '/api/chat/stream', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        messages: messages,
+        model: $('chat-model').value,
+        temperature: parseFloat($('chat-temperature').value) || 0.7,
+        top_p: parseFloat($('chat-top-p').value) || 0.95,
+        max_tokens: parseInt($('chat-max-tokens').value) || 4096,
+        stream: true,
+        use_tools: true,
+      }),
+      signal: chatAbortCtrl.signal,
+    });
+
+    if(!res.ok){
+      const err = await res.json().catch(()=>({detail:res.statusText}));
+      throw new Error(err.detail || err.message || '请求失败');
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+
+      buffer += decoder.decode(value, {stream:true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for(const line of lines){
+        if(!line.startsWith('data: ')) continue;
+        const dataStr = line.slice(6).trim();
+        if(dataStr === '[DONE]') break;
+
+        try{
+          const chunk = JSON.parse(dataStr);
+          if(chunk.error){
+            throw new Error(chunk.error);
+          }
+
+          // ── Tool call started ──
+          if(chunk.tool_start){
+            const tc = chunk.tool_start;
+            const toolLabel = tc.name === 'generate_image' ? '生成图片' : tc.name === 'generate_video' ? '生成视频' : tc.name;
+            const toolIcon = tc.name === 'generate_image'
+              ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'
+              : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>';
+            const card = document.createElement('div');
+            card.className = 'tool-card';
+            card.id = 'tool-card-' + Date.now();
+            card.innerHTML = `<div class="tool-header">${toolIcon} ${toolLabel}</div><div class="tool-status"><span class="spinner"></span> ${tc.args.prompt ? escapeHtml(tc.args.prompt.slice(0,80)) + (tc.args.prompt.length > 80 ? '…' : '') : '处理中..'}</div>`;
+            bubble.appendChild(card);
+            scrollChatToBottom();
+          }
+
+          // ── Tool call result ──
+          if(chunk.tool_result){
+            const tr = chunk.tool_result;
+            const lastCard = bubble.querySelector('.tool-card:last-of-type');
+            if(lastCard){
+              const result = tr.result || {};
+              if(result.success){
+                lastCard.className = 'tool-card tool-success';
+                let statusHtml = '<div class="tool-status">✓ 完成</div>';
+
+                // Render image inline
+                if(tr.name === 'generate_image' && result.image_url){
+                  statusHtml += `<div class="tool-media"><img src="${result.image_url}" alt="Generated image" loading="lazy" /></div>`;
+                }
+                // Render video task card
+                if(tr.name === 'generate_video' && result.task_id){
+                  statusHtml += `<div class="tool-media"><div class="video-pending"><span class="spinner"></span> 视频生成中(任务 ${result.task_id.slice(0,8)}）。完成后会在「视频生成」页面显示</div></div>`;
+                  // Start polling so the video page updates
+                  loadVideoTasks();
+                  startVideoPolling();
+                }
+                lastCard.querySelector('.tool-status').outerHTML = statusHtml;
+              }else{
+                lastCard.className = 'tool-card tool-error';
+                lastCard.querySelector('.tool-status').outerHTML = `<div class="tool-status">✗ ${escapeHtml(result.message || '失败')}</div>`;
+              }
+            }
+            scrollChatToBottom();
+          }
+
+          // ── Text delta ──
+          if(chunk.delta){
+            accumulated += chunk.delta;
+            // Rebuild bubble content: keep existing tool cards + append text
+            const toolCards = bubble.querySelectorAll('.tool-card');
+            let cardsHtml = '';
+            toolCards.forEach(c => cardsHtml += c.outerHTML);
+            bubble.innerHTML = cardsHtml + escapeHtml(accumulated) + '<span class="cursor-blink"></span>';
+            scrollChatToBottom();
+          }
+        }catch(parseErr){
+          if(parseErr.message && !parseErr.message.includes('JSON')){
+            throw parseErr;
+          }
+        }
+      }
+    }
+  }catch(e){
+    if(e.name === 'AbortError'){
+      if(accumulated){
+        const toolCards = bubble.querySelectorAll('.tool-card');
+        let cardsHtml = '';
+        toolCards.forEach(c => cardsHtml += c.outerHTML);
+        bubble.innerHTML = cardsHtml + escapeHtml(accumulated) + '<div style="font-size:11px;color:var(--text-muted);margin-top:6px">⏹ 已停止</div>';
+      }else{
+        assistantDiv.remove();
+        updateChatLayoutState();
+      }
+    }else{
+      assistantDiv.remove();
+      updateChatLayoutState();
+      addChatError(e.message || '对话请求失败');
+    }
+  }
+
+  // Finalize
+  if(accumulated){
+    const toolCards = bubble.querySelectorAll('.tool-card');
+    let cardsHtml = '';
+    toolCards.forEach(c => cardsHtml += c.outerHTML);
+    bubble.innerHTML = cardsHtml + escapeHtml(accumulated);
+    chatConversation.push({role:'assistant', content:accumulated});
+  }else if(assistantDiv.parentNode === null){
+    // bubble was removed (error case)
+  }else{
+    bubble.innerHTML = escapeHtml('(无响应');
+  }
+
+  chatStreaming = false;
+  chatAbortCtrl = null;
+  $('chat-send-btn').style.display = '';
+  $('chat-stop-btn').style.display = 'none';
+  updateChatLayoutState();
+  scrollChatToBottom();
+
+  // Auto-save conversation after each exchange
+  if(chatConversation.length > 0){
+    saveChatToServer();
+  }
+}
+
+function stopChatStream(){
+  if(chatAbortCtrl){
+    chatAbortCtrl.abort();
+  }
+}
+
+function clearChat(){
+  if(chatStreaming && chatAbortCtrl){
+    chatAbortCtrl.abort();
+  }
+  chatConversation = [];
+  currentConversationId = null;
+  chatStreaming = false;
+  clearChatImages();
+  resetChatWelcome();
+  $('chat-send-btn').style.display = '';
+  $('chat-stop-btn').style.display = 'none';
+  // Update conversation list to show no active selection
+  document.querySelectorAll('.chat-conv-item').forEach(el => el.classList.remove('active'));
+}
+
+// ── Chat Conversation Persistence ──
+
+async function saveChatToServer(){
+  try{
+    const body = {
+      conversation_id: currentConversationId,
+      title: '',  // server will auto-generate from first user message
+      messages: chatConversation,
+      model: $('chat-model').value,
+    };
+    const d = await api('/api/chat/save', {method:'POST', body:JSON.stringify(body)});
+    currentConversationId = d.conversation_id;
+    // Refresh the conversation list
+    loadChatConversations();
+  }catch(e){
+    console.warn('Failed to save conversation:', e.message);
+  }
+}
+
+async function loadChatConversations(){
+  try{
+    const d = await api('/api/chat/conversations');
+    renderChatConversations(d.conversations || []);
+  }catch(e){
+    console.warn('Failed to load conversations:', e.message);
+  }
+}
+
+function renderChatConversations(convs){
+  const list = $('chat-conv-list');
+  list.innerHTML = '';
+  if(!convs.length){
+    list.innerHTML = '<div style="text-align:center;padding:20px 8px;font-size:11px;color:var(--text-muted)">暂无保存的对话</div>';
+    return;
+  }
+  convs.forEach(conv => {
+    const div = document.createElement('div');
+    div.className = 'chat-conv-item' + (conv.id === currentConversationId ? ' active' : '');
+    const msgCount = conv.message_count || 0;
+    div.innerHTML = `
+      <div class="conv-title" title="${escapeHtml(conv.title)}">${escapeHtml(conv.title)}</div>
+      <div class="conv-meta">${msgCount}条</div>
+      <div class="conv-delete" title="删除" onclick="event.stopPropagation();deleteChatConversation(${conv.id})">×</div>
+    `;
+    div.onclick = () => loadChatConversation(conv.id);
+    list.appendChild(div);
+  });
+}
+
+async function loadChatConversation(id){
+  if(chatStreaming) return;
+  try{
+    const conv = await api('/api/chat/conversations/' + id);
+    if(!conv || !conv.messages) return;
+
+    // Update state
+    currentConversationId = conv.id;
+    chatConversation = conv.messages;
+
+    // Re-render the chat messages
+    const container = $('chat-messages');
+    container.innerHTML = '';
+
+    chatConversation.forEach(msg => {
+      if(msg.role === 'user' || msg.role === 'assistant'){
+        let textContent = '';
+        let imageUrls = null;
+        if(Array.isArray(msg.content)){
+          // Multimodal content
+          const texts = [];
+          const imgs = [];
+          msg.content.forEach(part => {
+            if(part.type === 'text') texts.push(part.text);
+            if(part.type === 'image_url' && part.image_url) imgs.push(part.image_url.url);
+          });
+          textContent = texts.join('\n');
+          if(imgs.length) imageUrls = imgs;
+        } else {
+          textContent = msg.content || '';
+        }
+        addChatBubble(msg.role, textContent, imageUrls);
+      }
+    });
+    if(!container.querySelector('.chat-msg')){
+      container.innerHTML = chatWelcomeHtml();
+    }
+    updateChatLayoutState();
+
+    // Update active state in conversation list
+    document.querySelectorAll('.chat-conv-item').forEach(el => {
+      el.classList.remove('active');
+    });
+    const activeItem = document.querySelector(`.chat-conv-item`);
+    // Re-render to update active state
+    loadChatConversations();
+
+    scrollChatToBottom();
+  }catch(e){
+    toast('加载对话失败: ' + e.message, 'error');
+  }
+}
+
+async function deleteChatConversation(id){
+  try{
+    await api('/api/chat/conversations/' + id, {method:'DELETE'});
+    if(id === currentConversationId){
+      // Current conversation was deleted, start fresh
+      clearChat();
+    }
+    toast('对话已删除');
+    loadChatConversations();
+  }catch(e){
+    toast('删除失败: ' + e.message, 'error');
+  }
+}
+
+// ── Init ──
+initUiTheme();
+updateChatLayoutState();
+loadConfig();
+loadVideoTasks();
+loadChatConversations();
+connectVideoWs();
+</script>
+</body>
+</html>
