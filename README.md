@@ -33,15 +33,15 @@ Agnes AI Studio 是一个基于 Agnes AI 服务的创意工作站，提供网页
 ## 界面预览
 
 <p align="center">
-  <img src="assets/frontend_page_photos/agnes_v3_frontend_01_dark_pro_workstation.png" alt="Dark Theme" width="48%" />
-  <img src="assets/frontend_page_photos/agnes_v3_frontend_02_light_editorial_productivity.png" alt="Light Theme" width="48%" />
+  <img src="assets/frontend_page_photos/图片生成.png" alt="图片生成" width="48%" />
+  <img src="assets/frontend_page_photos/视频生成.png" alt="视频生成" width="48%" />
 </p>
 <p align="center">
-  <img src="assets/frontend_page_photos/agnes_v3_frontend_03_neon_cyber_creator_lab.png" alt="Neon Theme" width="48%" />
-  <img src="assets/frontend_page_photos/agnes_v3_frontend_04_minimal_creator_canvas.png" alt="Minimal Theme" width="48%" />
+  <img src="assets/frontend_page_photos/对话.png" alt="AI 对话" width="48%" />
+  <img src="assets/frontend_page_photos/历史.png" alt="历史记录" width="48%" />
 </p>
 <p align="center">
-  <img src="assets/frontend_page_photos/agnes_v3_frontend_05_desktop_client_control_center.png" alt="Desktop Client" width="48%" />
+  <img src="assets/frontend_page_photos/下载.png" alt="下载中心" width="48%" />
 </p>
 
 ## 快速开始
