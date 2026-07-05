@@ -55,6 +55,48 @@ class AgnesClient:
         self.session.verify = False
         LOGGER.info("HTTP session reset (connection pool cleared)")
 
+    def _make_url(self, endpoint: str) -> str:
+        if endpoint.startswith(("http://", "https://")):
+            return endpoint
+        return f"{self.base_url}/{endpoint.lstrip('/')}"
+
+    @classmethod
+    def _safe_log_value(cls, value: Any, key: str = "", depth: int = 0) -> Any:
+        if depth > 8:
+            return "[nested]"
+        if isinstance(value, dict):
+            return {str(k): cls._safe_log_value(v, str(k), depth + 1) for k, v in value.items()}
+        if isinstance(value, list):
+            items = [cls._safe_log_value(item, key, depth + 1) for item in value[:20]]
+            if len(value) > 20:
+                items.append(f"...[{len(value) - 20} more items]")
+            return items
+        if isinstance(value, str):
+            lower_key = key.lower()
+            should_truncate = (
+                len(value) > 500
+                or value.startswith("data:")
+                or "base64" in lower_key
+                or lower_key in {"b64_json", "image", "image_url"}
+            )
+            if should_truncate:
+                return f"{value[:80]}...[{len(value)} chars]"
+        return value
+
+    @classmethod
+    def _safe_response_preview(cls, response: requests.Response) -> str:
+        text = response.text or ""
+        if not text.strip():
+            return ""
+        try:
+            parsed = response.json()
+        except ValueError:
+            if len(text) > 2000 or "data:" in text or "base64" in text.lower():
+                return f"{text[:2000]}...[{len(text)} chars]"
+            return text[:2000]
+        safe = json.dumps(cls._safe_log_value(parsed), ensure_ascii=False)
+        return safe[:2000]
+
     def request(
         self,
         method: str,
@@ -63,14 +105,8 @@ class AgnesClient:
         json_payload: dict[str, Any] | None = None,
         timeout: int | None = None,
     ) -> Any:
-        url = f"{self.base_url}/{endpoint.lstrip('/')}"
-        # Build a safe log payload that truncates large base64 fields
-        log_payload: dict[str, Any] = {}
-        for _k, _v in (json_payload or {}).items():
-            if isinstance(_v, str) and len(_v) > 500 and (_v.startswith("data:") or "base64" in _k):
-                log_payload[_k] = f"{_v[:80]}...[{len(_v)} chars]"
-            else:
-                log_payload[_k] = _v
+        url = self._make_url(endpoint)
+        log_payload = self._safe_log_value(json_payload or {})
         LOGGER.info("API request %s %s payload=%s", method.upper(), url, json.dumps(log_payload, ensure_ascii=False))
 
         for attempt in range(2):
@@ -98,7 +134,7 @@ class AgnesClient:
                 LOGGER.exception("API request failed")
                 raise AgnesAPIError(f"请求失败：{exc}") from exc
 
-        text_preview = response.text[:2000]
+        text_preview = self._safe_response_preview(response)
         LOGGER.info(
             "API response %s %s status=%s body=%s",
             method.upper(),
@@ -127,8 +163,8 @@ class AgnesClient:
         timeout: int | None = None,
     ) -> Generator[str, None, None]:
         """Send a streaming request and yield SSE data chunks as they arrive."""
-        url = f"{self.base_url}/{endpoint.lstrip('/')}"
-        safe_payload = json.dumps(json_payload or {}, ensure_ascii=False)
+        url = self._make_url(endpoint)
+        safe_payload = json.dumps(self._safe_log_value(json_payload or {}), ensure_ascii=False)
         LOGGER.info("Stream request %s %s payload=%s", method.upper(), url, safe_payload)
 
         headers = self._headers()

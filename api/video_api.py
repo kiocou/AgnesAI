@@ -37,6 +37,7 @@ def _create_retry_session(max_retries: int = 3) -> requests.Session:
 @dataclass
 class VideoTask:
     task_id: str
+    video_id: str = ""
     status: str = "queued"
     progress: int = 0
     created_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
@@ -61,8 +62,14 @@ class VideoGenerator:
         fps: int = 24,
         duration_seconds: int = 5,
         image_path: str = "",
+        image_paths: list[str] | None = None,
     ) -> VideoTask:
         width, height = self._parse_resolution(resolution)
+        input_images = [
+            self._image_payload(path)
+            for path in (image_paths or ([image_path] if image_path else []))
+            if isinstance(path, str) and path.strip()
+        ]
         payload: dict[str, Any] = {
             "model": model,
             "prompt": prompt,
@@ -74,51 +81,63 @@ class VideoGenerator:
         if negative_prompt.strip():
             payload["negative_prompt"] = negative_prompt.strip()
         if mode == "image":
-            if not image_path:
+            if not input_images:
                 raise AgnesAPIError("图生视频模式需要先上传图片。")
-            data_uri = self._image_payload(image_path)
-            # Agnes video API expects raw base64 (no data URI prefix)
-            if "," in data_uri:
-                payload["image"] = data_uri.split(",", 1)[1]
-            else:
-                payload["image"] = data_uri
+            payload["image"] = self._single_video_image_value(input_images[0])
+            payload["mode"] = "ti2vid"
+        elif mode in ("multi_image", "keyframes"):
+            if not input_images:
+                raise AgnesAPIError("多图视频模式需要先上传或选择参考图片。")
+            if mode == "keyframes" and len(input_images) < 2:
+                raise AgnesAPIError("关键帧动画至少需要 2 张参考图片。")
+            extra_body: dict[str, Any] = {"image": input_images}
+            if mode == "keyframes":
+                extra_body["mode"] = "keyframes"
+            payload["extra_body"] = extra_body
 
         data = self.client.request("POST", "/videos", json_payload=payload, timeout=180)
+        payload_data = data.get("data", data) if isinstance(data, dict) else {}
         task_id = (
-            data.get("id")
-            or data.get("task_id")
-            or data.get("video_id")
-            or data.get("data", {}).get("id")
-            or data.get("data", {}).get("task_id")
+            payload_data.get("id")
+            or payload_data.get("task_id")
+            or payload_data.get("video_id")
         )
         if not task_id:
             raise AgnesAPIError("视频任务创建成功但响应中没有 task_id。", raw=data)
 
-        status = data.get("status") or data.get("data", {}).get("status") or "queued"
-        created_at = data.get("created_at") or datetime.now().isoformat(timespec="seconds")
+        video_id = str(payload_data.get("video_id") or "")
+        status = payload_data.get("status") or "queued"
+        created_at = payload_data.get("created_at") or datetime.now().isoformat(timespec="seconds")
         return VideoTask(
             task_id=str(task_id),
+            video_id=video_id,
             status=str(status),
-            progress=self._parse_progress(data),
+            progress=self._parse_progress(payload_data if isinstance(payload_data, dict) else data),
             created_at=str(created_at),
             raw=data,
         )
 
-    def query_task(self, task_id: str) -> VideoTask:
+    def query_task(self, task_id: str, *, video_id: str = "", model: str = "agnes-video-v2.0") -> VideoTask:
         # Retry on transient errors (502, 503, timeout, connection reset)
         data = None
-        for attempt in range(3):
-            try:
-                data = self.client.request("GET", f"/videos/{task_id}", timeout=90)
+        endpoints = self._query_endpoints(task_id, video_id, model)
+        last_exc: Exception | None = None
+        for endpoint in endpoints:
+            for attempt in range(3):
+                try:
+                    data = self.client.request("GET", endpoint, timeout=90)
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    LOGGER.warning("Video query attempt %d/3 failed for %s: %s", attempt + 1, endpoint, exc)
+                    if attempt < 2:
+                        import time as _t; _t.sleep((attempt + 1) * 2)
+                    else:
+                        break
+            if data is not None:
                 break
-            except Exception as exc:
-                LOGGER.warning("Video query attempt %d/3 failed for %s: %s", attempt + 1, task_id, exc)
-                if attempt < 2:
-                    import time as _t; _t.sleep((attempt + 1) * 2)
-                else:
-                    raise AgnesAPIError(f"查询视频任务失败（重试 {attempt + 1} 次）：{exc}") from exc
         if data is None:
-            raise AgnesAPIError("查询视频任务失败：所有重试均失败")
+            raise AgnesAPIError(f"查询视频任务失败：{last_exc or '所有重试均失败'}")
         payload = data.get("data", data) if isinstance(data, dict) else {}
         status = str(payload.get("status") or payload.get("state") or "queued")
 
@@ -134,10 +153,12 @@ class VideoGenerator:
                 task_id,
                 list(data.keys()) if isinstance(data, dict) else "not a dict",
             )
-            LOGGER.warning("Raw response: %s", str(data)[:2000])
+            safe_data = AgnesClient._safe_log_value(data)
+            LOGGER.warning("Raw response: %s", str(safe_data)[:2000])
 
         return VideoTask(
             task_id=str(payload.get("id") or payload.get("task_id") or task_id),
+            video_id=str(payload.get("video_id") or video_id or ""),
             status=status,
             progress=self._parse_progress(payload),
             created_at=str(payload.get("created_at") or ""),
@@ -146,6 +167,20 @@ class VideoGenerator:
             error=str(payload.get("error") or payload.get("failure_reason") or ""),
             raw=data,
         )
+
+    def _query_endpoints(self, task_id: str, video_id: str, model: str) -> list[str]:
+        endpoints: list[str] = []
+        query_video_id = video_id or (task_id if str(task_id).startswith("video_") else "")
+        if query_video_id:
+            api_root = self.client.base_url.rstrip("/")
+            if api_root.endswith("/v1"):
+                api_root = api_root[:-3]
+            endpoint = f"{api_root}/agnesapi?video_id={quote(query_video_id, safe='')}"
+            if model:
+                endpoint += f"&model_name={quote(model, safe='')}"
+            endpoints.append(endpoint)
+        endpoints.append(f"/videos/{task_id}")
+        return endpoints
 
     _GCS_PROXY = "https://api.codetabs.com/v1/proxy?quest="
 
@@ -242,27 +277,7 @@ class VideoGenerator:
             return f"{header},{b64_clean}"
 
         if image_path.startswith(("http://", "https://")):
-            # Download remote image and convert to base64 data URI
-            LOGGER.info("Downloading remote image for base64 encoding: %s", image_path[:120])
-            try:
-                resp = requests.get(image_path, timeout=60)
-                resp.raise_for_status()
-            except requests.RequestException as exc:
-                raise AgnesAPIError(f"下载远程图片失败：{exc}") from exc
-
-            content_type = resp.headers.get("Content-Type", "image/png")
-            # Normalize content type
-            if "jpeg" in content_type or "jpg" in content_type:
-                mime_type = "image/jpeg"
-            elif "png" in content_type:
-                mime_type = "image/png"
-            elif "webp" in content_type:
-                mime_type = "image/webp"
-            else:
-                mime_type = content_type.split(";")[0].strip() or "image/png"
-
-            encoded = base64.b64encode(resp.content).decode("ascii")
-            return f"data:{mime_type};base64,{encoded}"
+            return image_path
 
         path = Path(image_path)
         if not path.exists():
@@ -274,22 +289,75 @@ class VideoGenerator:
         return f"data:{mime_type};base64,{encoded}"
 
     @staticmethod
+    def _single_video_image_value(image_payload: str) -> str:
+        if image_payload.startswith("data:") and "," in image_payload:
+            return image_payload.split(",", 1)[1]
+        return image_payload
+
+    @staticmethod
     def _parse_progress(payload: dict[str, Any]) -> int:
-        progress = payload.get("progress") or payload.get("percent") or payload.get("progress_percent")
+        progress = VideoGenerator._find_first_value(
+            payload,
+            (
+                "progress",
+                "progress_percent",
+                "percent",
+                "percentage",
+                "completion_percentage",
+                "completed_percent",
+                "progress_rate",
+            ),
+        )
+        if isinstance(progress, (dict, list)):
+            progress = VideoGenerator._find_first_value(
+                progress,
+                (
+                    "progress",
+                    "progress_percent",
+                    "percent",
+                    "percentage",
+                    "completion_percentage",
+                    "completed_percent",
+                    "progress_rate",
+                ),
+            )
         if progress is None:
-            status = str(payload.get("status", "")).lower()
-            if status == "completed":
+            status = str(VideoGenerator._find_first_value(payload, ("status", "state")) or "").lower()
+            if status in ("completed", "succeeded", "success", "finished", "done", "complete"):
                 return 100
-            if status == "failed":
+            if status in ("failed", "failure", "error", "cancelled", "canceled", "rejected", "timeout"):
                 return 0
             return 0
         try:
+            has_percent_sign = False
+            if isinstance(progress, str):
+                has_percent_sign = "%" in progress
+                progress = progress.strip().rstrip("%").strip()
             value = float(progress)
-            if value <= 1:
+            if value <= 1 and not has_percent_sign:
                 value *= 100
             return max(0, min(100, int(value)))
         except (TypeError, ValueError):
             return 0
+
+    @staticmethod
+    def _find_first_value(payload: Any, keys: tuple[str, ...]) -> Any:
+        if isinstance(payload, dict):
+            for key in keys:
+                if key in payload:
+                    value = payload[key]
+                    if value is not None and not (isinstance(value, str) and not value.strip()):
+                        return value
+            for value in payload.values():
+                nested = VideoGenerator._find_first_value(value, keys)
+                if nested is not None:
+                    return nested
+        elif isinstance(payload, list):
+            for item in payload:
+                nested = VideoGenerator._find_first_value(item, keys)
+                if nested is not None:
+                    return nested
+        return None
 
     @staticmethod
     def _parse_video_url(payload: dict[str, Any]) -> str:
@@ -298,7 +366,7 @@ class VideoGenerator:
             "video_url", "url", "result_url", "download_url",
             "video_download_url", "file_url", "media_url",
             "src", "source", "link", "href",
-            "remixed_from_video_id", "video_id", "output_url",
+            "remixed_from_video_id", "output_url",
         }
         candidates: list[str] = []
 

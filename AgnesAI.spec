@@ -23,8 +23,6 @@ hiddenimports += collect_submodules("charset_normalizer")
 
 datas = [
     ("web", "web"),
-    ("config/config.json", "config"),
-    ("database/history.db", "database"),
 ]
 
 a = Analysis(

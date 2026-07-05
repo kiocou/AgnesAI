@@ -285,6 +285,41 @@ td.truncate{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:n
   color:var(--accent-light);
 }
 .upload-area img{max-width:100%;max-height:120px;border-radius:8px;margin-top:8px}
+.reference-strip{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.reference-chip{
+  position:relative;
+  width:58px;
+  height:58px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  overflow:hidden;
+  background:var(--bg-input);
+}
+.reference-chip img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.reference-chip button{
+  position:absolute;
+  top:3px;
+  right:3px;
+  width:18px;
+  height:18px;
+  border:0;
+  border-radius:50%;
+  background:rgba(0,0,0,.7);
+  color:#fff;
+  cursor:pointer;
+  line-height:18px;
+  font-size:12px;
+}
 
 /* Empty state */
 .empty-state{
@@ -1120,6 +1155,97 @@ body.theme-light .chat-settings-header{
   background:linear-gradient(180deg,rgba(255,255,255,.70),transparent),var(--bg-secondary);
 }
 
+/* ── First-run API Key Gate ── */
+.onboarding-gate{
+  position:fixed;
+  inset:0;
+  z-index:5000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:
+    linear-gradient(135deg,rgba(99,102,241,.18),transparent 36%),
+    linear-gradient(225deg,rgba(6,182,212,.14),transparent 42%),
+    rgba(5,7,12,.94);
+  backdrop-filter:blur(14px);
+}
+.onboarding-gate.is-hidden{display:none}
+.onboarding-panel{
+  width:min(520px,100%);
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:linear-gradient(180deg,rgba(255,255,255,.04),transparent),var(--bg-card);
+  box-shadow:var(--shadow-lg);
+  padding:28px;
+}
+.onboarding-kicker{
+  width:max-content;
+  margin-bottom:14px;
+  padding:5px 9px;
+  border:1px solid rgba(99,102,241,.24);
+  border-radius:6px;
+  color:var(--accent-light);
+  background:rgba(99,102,241,.08);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:0;
+}
+.onboarding-title{
+  margin:0;
+  color:var(--text-primary);
+  font-size:28px;
+  line-height:1.16;
+  font-weight:800;
+  letter-spacing:0;
+}
+.onboarding-copy{
+  margin:10px 0 22px;
+  color:var(--text-secondary);
+  font-size:14px;
+  line-height:1.7;
+}
+.form-label-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:6px;
+}
+.form-label-row .form-label{margin-bottom:0}
+.key-link{
+  flex-shrink:0;
+  color:var(--accent-light);
+  font-size:12px;
+  font-weight:700;
+}
+.key-link:hover{text-decoration:underline}
+.onboarding-actions,
+.settings-actions{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.config-status{
+  min-height:18px;
+  color:var(--text-muted);
+  font-size:12px;
+  line-height:1.5;
+}
+.config-status.success{color:var(--success)}
+.config-status.error{color:var(--danger)}
+.config-status.muted{color:var(--text-muted)}
+body.theme-light .onboarding-gate{
+  background:
+    linear-gradient(135deg,rgba(20,111,199,.15),transparent 36%),
+    linear-gradient(225deg,rgba(24,121,78,.12),transparent 42%),
+    rgba(246,248,251,.94);
+}
+body.theme-light .onboarding-panel{
+  background:linear-gradient(180deg,rgba(255,255,255,.78),transparent),var(--bg-card);
+}
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{
     animation-duration:.001ms!important;
@@ -1232,6 +1358,15 @@ body.theme-light .chat-settings-header{
               <label class="form-label">Negative Prompt</label>
               <textarea class="form-textarea" id="img-neg" placeholder="不希望出现的元素..." rows="2" style="min-height:60px"></textarea>
             </div>
+            <div class="form-group">
+              <label class="form-label">参考图片</label>
+              <div class="upload-area" id="img-ref-upload-area" onclick="document.getElementById('img-ref-input').click()">
+                <div id="img-ref-upload-text">点击或拖拽上传参考图</div>
+              </div>
+              <input type="file" id="img-ref-input" accept="image/*" multiple style="display:none" onchange="handleImageRefUpload(event)"/>
+              <div class="reference-strip" id="img-ref-list"></div>
+              <button class="btn btn-ghost" id="img-ref-clear" style="display:none;margin-top:8px;font-size:12px;padding:6px 10px" onclick="clearImageRefs()">清空参考图</button>
+            </div>
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">模型</label>
@@ -1244,7 +1379,9 @@ body.theme-light .chat-settings-header{
                 <label class="form-label">尺寸</label>
                 <select class="form-select" id="img-size">
                   <option value="512x512">512 x 512 (方形)</option>
+                  <option value="1024x768">1024 x 768 (横版)</option>
                   <option value="1152x768" selected>1152 x 768 (横版)</option>
+                  <option value="1024x1024">1024 x 1024 (方形)</option>
                   <option value="1024x1536">1024 x 1536 (竖版)</option>
                 </select>
               </div>
@@ -1298,6 +1435,8 @@ body.theme-light .chat-settings-header{
               <select class="form-select" id="vid-mode" onchange="toggleVidMode()">
                 <option value="text">文生视频</option>
                 <option value="image">图生视频</option>
+                <option value="multi_image">多图视频</option>
+                <option value="keyframes">关键帧动画</option>
               </select>
             </div>
             <div class="form-group">
@@ -1333,17 +1472,19 @@ body.theme-light .chat-settings-header{
               </div>
             </div>
             <div class="form-group" id="vid-upload-group" style="display:none">
-              <label class="form-label">上传图片</label>
+              <label class="form-label">参考图片</label>
               <div class="upload-area" id="vid-upload-area" onclick="document.getElementById('vid-upload-input').click()">
                 <div id="vid-upload-text">点击或拖拽上传 jpg / png</div>
                 <img id="vid-upload-preview" style="display:none" />
               </div>
-              <input type="file" id="vid-upload-input" accept="image/*" style="display:none" onchange="handleVidUpload(event)"/>
+              <input type="file" id="vid-upload-input" accept="image/*" multiple style="display:none" onchange="handleVidUpload(event)"/>
+              <div class="reference-strip" id="vid-ref-list"></div>
               <div style="display:flex;gap:8px;margin-top:8px">
                 <button class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px" onclick="openImagePicker()">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
                   从生成历史选择
                 </button>
+                <button class="btn btn-ghost" style="font-size:12px;padding:8px" onclick="clearVideoRefs()">清空</button>
               </div>
             </div>
 
@@ -1440,14 +1581,20 @@ body.theme-light .chat-settings-header{
         <div class="card" style="max-width:560px">
           <div class="card-header"><div class="card-title">API 配置</div></div>
           <div class="form-group">
-            <label class="form-label">API Key</label>
+            <div class="form-label-row">
+              <label class="form-label" for="set-api-key">API Key</label>
+              <a class="key-link" href="https://agnes-ai.com/" target="_blank" rel="noopener noreferrer">获取key</a>
+            </div>
             <input class="form-input" id="set-api-key" type="password" placeholder="输入你的 API Key" />
           </div>
           <div class="form-group">
-            <label class="form-label">Base URL</label>
+            <label class="form-label" for="set-base-url">Base URL</label>
             <input class="form-input" id="set-base-url" type="text" value="https://apihub.agnes-ai.com/v1" />
           </div>
-          <button class="btn btn-primary" onclick="saveConfig()">保存配置</button>
+          <div class="settings-actions">
+            <button class="btn btn-primary" id="set-save-btn" onclick="saveConfig()">保存配置</button>
+            <span class="config-status" id="settings-status"></span>
+          </div>
         </div>
       </div>
 
@@ -1565,6 +1712,29 @@ Always respond in the same language as the user.</textarea>
   </div><!-- /main -->
 </div><!-- /app -->
 
+<div class="onboarding-gate" id="onboarding-gate" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+  <div class="onboarding-panel">
+    <div class="onboarding-kicker">首次使用</div>
+    <h2 class="onboarding-title" id="onboarding-title">配置 API Key</h2>
+    <p class="onboarding-copy">填写并验证 Agnes API Key 后进入工作台。</p>
+    <div class="form-group">
+      <div class="form-label-row">
+        <label class="form-label" for="onboarding-api-key">API Key</label>
+        <a class="key-link" href="https://agnes-ai.com/" target="_blank" rel="noopener noreferrer">获取key</a>
+      </div>
+      <input class="form-input" id="onboarding-api-key" type="password" placeholder="输入你的 API Key" autocomplete="off" onkeydown="onboardingKeyDown(event)" />
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="onboarding-base-url">Base URL</label>
+      <input class="form-input" id="onboarding-base-url" type="text" value="https://apihub.agnes-ai.com/v1" onkeydown="onboardingKeyDown(event)" />
+    </div>
+    <div class="onboarding-actions">
+      <button class="btn btn-primary" id="onboarding-save-btn" onclick="saveConfig({source:'onboarding'})">验证并进入</button>
+      <span class="config-status muted" id="onboarding-status">正在读取配置...</span>
+    </div>
+  </div>
+</div>
+
 <!-- Toast container -->
 <div class="toast-container" id="toasts"></div>
 
@@ -1576,17 +1746,21 @@ const API = '';
 let currentVideoUrl = '';
 let _currentVideoTaskId = '';
 let videoPollTimer = null;
+let videoPollInFlight = false;
 let imageBase64 = '';
+let imageEditInputs = [];
+let videoImageInputs = [];
 let pollInterval = 3000;  // adaptive: 3s default, 5s when only queued
 let pageVisible = true;
+let historyImageSets = {};
+let configReady = false;
 
 // Page visibility: pause polling when tab is hidden
 document.addEventListener('visibilitychange', () => {
   pageVisible = !document.hidden;
   if(pageVisible && videoPollTimer === null) {
     // Page became visible → restart polling if there are active tasks
-    loadVideoTasks();
-    startVideoPolling();
+    loadVideoTasks({autoPoll:true});
   }
 });
 
@@ -1661,7 +1835,10 @@ function toast(msg, type='success'){
   const c = $('toasts');
   const d = document.createElement('div');
   d.className = 'toast ' + type;
-  d.innerHTML = `<span class="dot"></span>${msg}`;
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  d.appendChild(dot);
+  d.appendChild(document.createTextNode(String(msg || '')));
   c.appendChild(d);
   setTimeout(()=>{ d.style.opacity='0'; d.style.transform='translateX(40px)'; setTimeout(()=>d.remove(),300) }, 3500);
 }
@@ -1677,6 +1854,41 @@ async function api(path, opts={}){
   return res.json();
 }
 
+async function uploadImageFileToDataUri(file){
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch('/api/upload-image',{method:'POST',body:fd});
+  if(!res.ok){
+    const err = await res.json().catch(()=>({detail:'上传失败'}));
+    throw new Error(err.detail || err.message || '上传失败');
+  }
+  const d = await res.json();
+  return d.data_uri || '';
+}
+
+function renderReferenceStrip(containerId, items, removeFn){
+  const container = $(containerId);
+  if(!container) return;
+  container.innerHTML = '';
+  items.forEach((item, index) => {
+    const chip = document.createElement('div');
+    chip.className = 'reference-chip';
+    const img = document.createElement('img');
+    img.src = item.src || item.value;
+    img.alt = item.label || 'reference image';
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = '×';
+    remove.onclick = (event) => {
+      event.stopPropagation();
+      removeFn(index);
+    };
+    chip.appendChild(img);
+    chip.appendChild(remove);
+    container.appendChild(chip);
+  });
+}
+
 // ── Navigation ──
 function switchPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1687,28 +1899,111 @@ function switchPage(name){
   if(nav) nav.classList.add('active');
   const titles = {image:'图片生成',video:'视频生成',chat:'AI 对话',history:'历史记录',download:'下载中心',settings:'设置'};
   $('topbar-title').textContent = titles[name] || name;
+  if(name==='image') loadImagePreviewFromHistory();
   if(name==='history') loadHistory();
   if(name==='download') loadDownloads();
-  if(name==='video') loadVideoTasks();
+  if(name==='video') loadVideoTasks({autoPoll:true});
 }
 
 // ── Config ──
+function setConfigStatus(id, message, type='muted'){
+  const el = $(id);
+  if(!el) return;
+  el.textContent = message || '';
+  el.className = 'config-status ' + type;
+}
+
+function setConfigButtonBusy(id, busy, label){
+  const btn = $(id);
+  if(!btn) return;
+  if(busy){
+    if(!btn.dataset.defaultLabel) btn.dataset.defaultLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = label || '正在验证...';
+  }else{
+    btn.disabled = false;
+    btn.textContent = btn.dataset.defaultLabel || btn.textContent;
+  }
+}
+
+function syncConfigInputs(apiKey, baseUrl){
+  const key = apiKey || '';
+  const url = baseUrl || 'https://apihub.agnes-ai.com/v1';
+  if($('set-api-key')) $('set-api-key').value = key;
+  if($('set-base-url')) $('set-base-url').value = url;
+  if($('onboarding-api-key')) $('onboarding-api-key').value = key;
+  if($('onboarding-base-url')) $('onboarding-base-url').value = url;
+}
+
+function setOnboardingVisible(visible){
+  const gate = $('onboarding-gate');
+  if(!gate) return;
+  gate.classList.toggle('is-hidden', !visible);
+  gate.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  if(visible){
+    setTimeout(() => {
+      const input = $('onboarding-api-key');
+      if(input) input.focus();
+    }, 30);
+  }
+}
+
+function onboardingKeyDown(e){
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    saveConfig({source:'onboarding'});
+  }
+}
+
 async function loadConfig(){
   try{
     const d = await api('/api/config');
-    $('set-api-key').value = d.api_key || '';
-    $('set-base-url').value = d.base_url || '';
-  }catch(e){}
+    syncConfigInputs(d.api_key || '', d.base_url || '');
+    configReady = !!(d.configured || d.api_key);
+    if(configReady && $('set-api-key')){
+      $('set-api-key').placeholder = d.api_key_preview ? '已保存：' + d.api_key_preview : 'API Key 已保存';
+    }
+    setOnboardingVisible(!configReady);
+    setConfigStatus('onboarding-status', configReady ? '' : '请先填写 API Key', configReady ? 'success' : 'muted');
+  }catch(e){
+    configReady = false;
+    setOnboardingVisible(true);
+    setConfigStatus('onboarding-status', '配置读取失败：' + e.message, 'error');
+  }
 }
-async function saveConfig(){
-  const key = $('set-api-key').value;
-  const url = $('set-base-url').value;
+
+async function saveConfig(options={}){
+  const source = options.source === 'onboarding' ? 'onboarding' : 'settings';
+  const keyEl = source === 'onboarding' ? $('onboarding-api-key') : $('set-api-key');
+  const urlEl = source === 'onboarding' ? $('onboarding-base-url') : $('set-base-url');
+  const statusId = source === 'onboarding' ? 'onboarding-status' : 'settings-status';
+  const buttonId = source === 'onboarding' ? 'onboarding-save-btn' : 'set-save-btn';
+  const key = (keyEl && keyEl.value ? keyEl.value : '').trim();
+  const url = (urlEl && urlEl.value ? urlEl.value : '').trim() || 'https://apihub.agnes-ai.com/v1';
+
+  if(!key && !(source === 'settings' && configReady)){
+    setConfigStatus(statusId, '请输入 API Key', 'error');
+    if(keyEl) keyEl.focus();
+    return;
+  }
+
+  setConfigStatus(statusId, '正在验证 API Key...', 'muted');
+  setConfigButtonBusy(buttonId, true, '正在验证...');
   try{
     await api('/api/config',{method:'POST',body:JSON.stringify({api_key:key,base_url:url})});
+    configReady = true;
+    syncConfigInputs(key, url);
+    setOnboardingVisible(false);
+    setConfigStatus('settings-status', '已保存', 'success');
+    setConfigStatus('onboarding-status', '验证通过', 'success');
     toast('配置已保存');
-    $('set-api-key').value = key;
-    $('set-base-url').value = url;
-  }catch(e){ toast(e.message,'error') }
+  }catch(e){
+    setConfigStatus(statusId, e.message, 'error');
+    if(source === 'onboarding') setOnboardingVisible(true);
+    toast(e.message,'error');
+  }finally{
+    setConfigButtonBusy(buttonId, false);
+  }
 }
 
 // ══════ Image Generation ══════
@@ -1722,7 +2017,9 @@ const IMAGE_MODEL_SIZES = {
   ],
   'agnes-image-2.1-flash': [
     {v:'512x512',l:'512 x 512 (方形)'},
+    {v:'1024x768',l:'1024 x 768 (横版)'},
     {v:'1152x768',l:'1152 x 768 (横版)'},
+    {v:'1024x1024',l:'1024 x 1024 (方形)'},
     {v:'1024x1536',l:'1024 x 1536 (竖版)'},
   ],
 };
@@ -1735,6 +2032,108 @@ function updateImageSizes(){
   sel.innerHTML = sizes.map(s=>'<option value="'+s.v+'">'+s.l+'</option>').join('');
   // Restore previous selection if still available
   if(sizes.some(s=>s.v===prev)) sel.value = prev;
+}
+
+function imageItemSrc(img){
+  const localPath = img && img.local_path ? String(img.local_path) : '';
+  const url = img && img.url ? String(img.url) : '';
+  return localPath ? '/api/file?path=' + encodeURIComponent(localPath) : url;
+}
+
+function imageDownloadUrl(img){
+  if(img && img.url) return String(img.url);
+  const src = imageItemSrc(img);
+  return src && src.startsWith('/') ? location.origin + src : src;
+}
+
+function imageItemsFromHistoryRecord(record){
+  if(Array.isArray(record.images) && record.images.length){
+    return record.images
+      .map(item => ({
+        url: item && item.url ? String(item.url) : '',
+        local_path: item && item.local_path ? String(item.local_path) : '',
+      }))
+      .filter(item => item.url || item.local_path);
+  }
+
+  const urls = Array.isArray(record.result_urls)
+    ? record.result_urls.map(v => String(v || ''))
+    : String(record.result_url || '').split(',').map(s=>s.trim());
+  const paths = Array.isArray(record.local_paths)
+    ? record.local_paths.map(v => String(v || ''))
+    : String(record.local_path || '').split(',').map(s=>s.trim());
+  const count = Math.max(urls.length, paths.length, parseInt(record.count || 0) || 0);
+  const items = [];
+  for(let i=0; i<count; i++){
+    const item = {url: urls[i] || '', local_path: paths[i] || ''};
+    if(item.url || item.local_path) items.push(item);
+  }
+  return items;
+}
+
+async function loadImagePreviewFromHistory(){
+  try{
+    const d = await api('/api/image/history');
+    renderGallery(d.images || []);
+  }catch(e){
+    console.warn('Failed to load image history preview:', e.message);
+  }
+}
+
+function renderImageRefs(){
+  renderReferenceStrip('img-ref-list', imageEditInputs, (index) => {
+    imageEditInputs.splice(index, 1);
+    renderImageRefs();
+  });
+  const clearBtn = $('img-ref-clear');
+  if(clearBtn) clearBtn.style.display = imageEditInputs.length ? '' : 'none';
+  const label = $('img-ref-upload-text');
+  if(label) label.textContent = imageEditInputs.length ? '已选择 ' + imageEditInputs.length + ' 张参考图' : '点击或拖拽上传参考图';
+}
+
+async function handleImageRefUpload(event){
+  const files = Array.from(event.target.files || []);
+  if(!files.length) return;
+  try{
+    for(const file of files){
+      const dataUri = await uploadImageFileToDataUri(file);
+      if(dataUri){
+        imageEditInputs.push({value:dataUri, src:URL.createObjectURL(file), label:file.name});
+      }
+    }
+    renderImageRefs();
+    toast('参考图已添加');
+  }catch(e){
+    toast('上传失败: ' + e.message, 'error');
+  }finally{
+    event.target.value = '';
+  }
+}
+
+function clearImageRefs(){
+  imageEditInputs = [];
+  renderImageRefs();
+}
+
+const imageRefUploadArea = $('img-ref-upload-area');
+if(imageRefUploadArea){
+  imageRefUploadArea.addEventListener('dragover', e=>{e.preventDefault();imageRefUploadArea.classList.add('dragover')});
+  imageRefUploadArea.addEventListener('dragleave', ()=>imageRefUploadArea.classList.remove('dragover'));
+  imageRefUploadArea.addEventListener('drop', async e=>{
+    e.preventDefault();imageRefUploadArea.classList.remove('dragover');
+    const files = Array.from(e.dataTransfer.files || []);
+    if(!files.length) return;
+    try{
+      for(const file of files.filter(file => file.type.startsWith('image/'))){
+        const dataUri = await uploadImageFileToDataUri(file);
+        if(dataUri) imageEditInputs.push({value:dataUri, src:URL.createObjectURL(file), label:file.name});
+      }
+      renderImageRefs();
+      toast('参考图已添加');
+    }catch(err){
+      toast('上传失败: ' + err.message, 'error');
+    }
+  });
 }
 
 async function generateImages(){
@@ -1756,6 +2155,7 @@ async function generateImages(){
         size: $('img-size').value,
         count: parseInt($('img-count').value),
         seed: $('img-seed').value.trim(),
+        input_images: imageEditInputs.map(item => item.value).filter(Boolean),
       })
     });
     renderGallery(d.images || []);
@@ -1772,31 +2172,68 @@ async function generateImages(){
 function renderGallery(images){
   const g = $('img-gallery');
   g.innerHTML = '';
-  $('img-empty').style.display = images.length ? 'none' : 'flex';
+  let rendered = 0;
   images.forEach((img,i) => {
-    const src = img.local_path ? `/api/file?path=${encodeURIComponent(img.local_path)}` : img.url;
+    const src = imageItemSrc(img);
+    if(!src) return;
+    rendered++;
     const div = document.createElement('div');
     div.className = 'gallery-item';
-    div.innerHTML = `
-      <img src="${src}" loading="lazy" alt="Generated image" />
-      <div class="overlay">
-        <button class="btn btn-ghost" style="color:#fff" onclick="event.stopPropagation();openPreview('${src}')">预览</button>
-        <button class="btn btn-ghost" style="color:#fff" onclick="event.stopPropagation();downloadImage('${img.url}','image_${i+1}.png')">下载</button>
-      </div>`;
+    const image = document.createElement('img');
+    image.src = src;
+    image.loading = 'lazy';
+    image.alt = 'Generated image';
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    const previewBtn = document.createElement('button');
+    previewBtn.className = 'btn btn-ghost';
+    previewBtn.style.color = '#fff';
+    previewBtn.textContent = '预览';
+    previewBtn.onclick = (event) => {
+      event.stopPropagation();
+      openPreview(src);
+    };
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'btn btn-ghost';
+    downloadBtn.style.color = '#fff';
+    downloadBtn.textContent = '下载';
+    downloadBtn.onclick = (event) => {
+      event.stopPropagation();
+      downloadImage(imageDownloadUrl(img), 'image_' + (i+1) + '.png');
+    };
+    overlay.appendChild(previewBtn);
+    overlay.appendChild(downloadBtn);
+    div.appendChild(image);
+    div.appendChild(overlay);
     div.onclick = ()=> openPreview(src);
     g.appendChild(div);
   });
+  $('img-empty').style.display = rendered ? 'none' : 'flex';
 }
 
 function openPreview(src){
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.onclick = event => event.stopPropagation();
   const isVideo = /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(src) || src.includes('/api/video/stream/');
   if(isVideo){
-    backdrop.innerHTML = `<div class="modal"><video src="${src}" controls autoplay style="max-width:85vw;max-height:85vh;display:block;border-radius:var(--radius)"></video></div>`;
+    const video = document.createElement('video');
+    video.src = src;
+    video.controls = true;
+    video.autoplay = true;
+    video.style.maxWidth = '85vw';
+    video.style.maxHeight = '85vh';
+    video.style.display = 'block';
+    video.style.borderRadius = 'var(--radius)';
+    modal.appendChild(video);
   } else {
-    backdrop.innerHTML = `<div class="modal"><img src="${src}" /></div>`;
+    const img = document.createElement('img');
+    img.src = src;
+    modal.appendChild(img);
   }
+  backdrop.appendChild(modal);
   backdrop.onclick = ()=> backdrop.remove();
   document.body.appendChild(backdrop);
 }
@@ -1808,10 +2245,179 @@ function downloadImage(url, name){
   }).catch(e=>toast(e.message,'error'));
 }
 
+function openImageSet(key, startIndex=0){
+  const items = historyImageSets[key] || [];
+  if(!items.length){ toast('没有可预览的图片','error'); return }
+  if(items.length === 1){
+    const src = imageItemSrc(items[0]);
+    if(src) openPreview(src);
+    return;
+  }
+
+  let index = Math.max(0, Math.min(items.length - 1, startIndex || 0));
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.width = 'min(92vw, 980px)';
+  modal.style.maxHeight = '90vh';
+  modal.style.padding = '16px';
+  modal.onclick = event => event.stopPropagation();
+
+  const header = document.createElement('div');
+  header.style.display = 'flex';
+  header.style.alignItems = 'center';
+  header.style.justifyContent = 'space-between';
+  header.style.gap = '12px';
+  header.style.marginBottom = '12px';
+
+  const counter = document.createElement('div');
+  counter.style.fontSize = '13px';
+  counter.style.color = 'var(--text-secondary)';
+  const actions = document.createElement('div');
+  actions.style.display = 'flex';
+  actions.style.gap = '8px';
+
+  const downloadBtn = document.createElement('button');
+  downloadBtn.className = 'btn btn-secondary';
+  downloadBtn.textContent = '下载当前';
+  downloadBtn.onclick = () => downloadImage(imageDownloadUrl(items[index]), 'image_' + (index + 1) + '.png');
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn btn-ghost';
+  closeBtn.textContent = '关闭';
+  closeBtn.onclick = () => backdrop.remove();
+  actions.appendChild(downloadBtn);
+  actions.appendChild(closeBtn);
+  header.appendChild(counter);
+  header.appendChild(actions);
+
+  const viewerWrap = document.createElement('div');
+  viewerWrap.style.display = 'grid';
+  viewerWrap.style.gridTemplateColumns = '40px 1fr 40px';
+  viewerWrap.style.alignItems = 'center';
+  viewerWrap.style.gap = '10px';
+
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'btn btn-secondary';
+  prevBtn.textContent = '<';
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'btn btn-secondary';
+  nextBtn.textContent = '>';
+  const mainImg = document.createElement('img');
+  mainImg.style.maxWidth = '100%';
+  mainImg.style.maxHeight = '62vh';
+  mainImg.style.objectFit = 'contain';
+  mainImg.style.margin = '0 auto';
+  mainImg.style.borderRadius = 'var(--radius)';
+
+  viewerWrap.appendChild(prevBtn);
+  viewerWrap.appendChild(mainImg);
+  viewerWrap.appendChild(nextBtn);
+
+  const thumbs = document.createElement('div');
+  thumbs.style.display = 'flex';
+  thumbs.style.gap = '8px';
+  thumbs.style.overflowX = 'auto';
+  thumbs.style.marginTop = '12px';
+
+  function render(){
+    const src = imageItemSrc(items[index]);
+    mainImg.src = src;
+    counter.textContent = '图片 ' + (index + 1) + ' / ' + items.length;
+    thumbs.innerHTML = '';
+    items.forEach((item, i) => {
+      const thumbSrc = imageItemSrc(item);
+      const thumb = document.createElement('button');
+      thumb.className = 'preview-thumb';
+      thumb.style.flex = '0 0 64px';
+      thumb.style.borderColor = i === index ? 'var(--accent)' : 'var(--border)';
+      const thumbImg = document.createElement('img');
+      thumbImg.src = thumbSrc;
+      thumbImg.loading = 'lazy';
+      thumb.appendChild(thumbImg);
+      thumb.onclick = () => {
+        index = i;
+        render();
+      };
+      thumbs.appendChild(thumb);
+    });
+  }
+
+  prevBtn.onclick = () => {
+    index = (index - 1 + items.length) % items.length;
+    render();
+  };
+  nextBtn.onclick = () => {
+    index = (index + 1) % items.length;
+    render();
+  };
+  backdrop.onclick = () => backdrop.remove();
+  modal.appendChild(header);
+  modal.appendChild(viewerWrap);
+  modal.appendChild(thumbs);
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  render();
+}
+
+async function downloadImageSet(key){
+  const items = historyImageSets[key] || [];
+  const downloads = items.map(imageDownloadUrl).filter(Boolean);
+  if(!downloads.length){ toast('没有下载链接','error'); return }
+  try{
+    await Promise.all(downloads.map((url, i) =>
+      api('/api/download',{method:'POST',body:JSON.stringify({url,file_name:'image_' + (i+1) + '.png'})})
+    ));
+    toast('已添加 ' + downloads.length + ' 张图片到下载队列');
+  }catch(e){
+    toast(e.message,'error');
+  }
+}
+
 // ══════ Video Generation ══════
+function videoModeRequiresImages(mode){
+  return mode !== 'text';
+}
+
+function renderVideoRefs(){
+  renderReferenceStrip('vid-ref-list', videoImageInputs, (index) => {
+    videoImageInputs.splice(index, 1);
+    imageBase64 = videoImageInputs[0] ? videoImageInputs[0].value : '';
+    renderVideoRefs();
+  });
+  const first = videoImageInputs[0];
+  if(first){
+    imageBase64 = first.value;
+    $('vid-upload-preview').src = first.src || first.value;
+    $('vid-upload-preview').style.display = 'block';
+  }else{
+    imageBase64 = '';
+    $('vid-upload-preview').removeAttribute('src');
+    $('vid-upload-preview').style.display = 'none';
+  }
+  const mode = $('vid-mode').value;
+  const text = $('vid-upload-text');
+  if(text){
+    if(videoImageInputs.length){
+      text.textContent = '已选择 ' + videoImageInputs.length + ' 张参考图';
+    }else if(mode === 'keyframes'){
+      text.textContent = '上传至少 2 张关键帧图片';
+    }else if(mode === 'multi_image'){
+      text.textContent = '上传多张参考图';
+    }else{
+      text.textContent = '点击或拖拽上传 jpg / png';
+    }
+  }
+}
+
 function toggleVidMode(){
-  const isImage = $('vid-mode').value === 'image';
-  $('vid-upload-group').style.display = isImage ? 'block' : 'none';
+  const mode = $('vid-mode').value;
+  const needsImages = videoModeRequiresImages(mode);
+  $('vid-upload-group').style.display = needsImages ? 'block' : 'none';
+  const input = $('vid-upload-input');
+  if(input) input.multiple = mode !== 'image';
+  renderVideoRefs();
 }
 
 // Drag and drop
@@ -1821,24 +2427,37 @@ if(uploadArea){
   uploadArea.addEventListener('dragleave', ()=>uploadArea.classList.remove('dragover'));
   uploadArea.addEventListener('drop', e=>{
     e.preventDefault();uploadArea.classList.remove('dragover');
-    if(e.dataTransfer.files.length) handleVidUploadFile(e.dataTransfer.files[0]);
+    if(e.dataTransfer.files.length) handleVidUploadFiles(Array.from(e.dataTransfer.files));
   });
 }
 
 async function handleVidUpload(event){
-  if(event.target.files.length) handleVidUploadFile(event.target.files[0]);
+  if(event.target.files.length) await handleVidUploadFiles(Array.from(event.target.files));
+  event.target.value = '';
 }
-async function handleVidUploadFile(file){
-  const fd = new FormData();
-  fd.append('file', file);
+
+async function handleVidUploadFiles(files){
+  const mode = $('vid-mode').value;
+  const imageFiles = files.filter(file => file.type.startsWith('image/'));
+  if(!imageFiles.length){ toast('请选择图片文件','error'); return }
+  if(mode === 'image') videoImageInputs = [];
   try{
-    const d = await fetch('/api/upload-image',{method:'POST',body:fd}).then(r=>r.json());
-    imageBase64 = d.data_uri || '';
-    $('vid-upload-preview').src = URL.createObjectURL(file);
-    $('vid-upload-preview').style.display = 'block';
-    $('vid-upload-text').textContent = file.name;
-    toast('图片已上传');
+    for(const file of imageFiles){
+      const dataUri = await uploadImageFileToDataUri(file);
+      if(dataUri){
+        videoImageInputs.push({value:dataUri, src:URL.createObjectURL(file), label:file.name});
+      }
+      if(mode === 'image') break;
+    }
+    renderVideoRefs();
+    toast('参考图已添加');
   }catch(e){ toast('上传失败: '+e.message,'error') }
+}
+
+function clearVideoRefs(){
+  videoImageInputs = [];
+  imageBase64 = '';
+  renderVideoRefs();
 }
 
 // ── Image Picker (select from generated history) ──
@@ -1856,14 +2475,13 @@ async function openImagePicker(){
       return;
     }
     images.forEach(img => {
-      const src = img.local_path
-        ? `/api/file?path=${encodeURIComponent(img.local_path)}`
-        : img.url;
+      const src = imageItemSrc(img);
+      if(!src) return;
       const div = document.createElement('div');
       div.className = 'gallery-item';
       div.style.aspectRatio = '1';
       div.title = img.prompt || '';
-      div.innerHTML = `<img src="${src}" loading="lazy" /><div class="overlay"><span style="color:#fff;font-size:11px">${(img.prompt||'').slice(0,30)}</span></div>`;
+      div.innerHTML = `<img src="${escapeAttr(src)}" loading="lazy" /><div class="overlay"><span style="color:#fff;font-size:11px">${escapeHtml((img.prompt||'').slice(0,30))}</span></div>`;
       div.onclick = ()=> selectPickerImage(src, img);
       gallery.appendChild(div);
     });
@@ -1880,6 +2498,14 @@ function closeImagePicker(){
 
 async function selectPickerImage(src, imgData){
   closeImagePicker();
+  const mode = $('vid-mode').value;
+  if(mode === 'image') videoImageInputs = [];
+  if(imgData.url){
+    videoImageInputs.push({value:imgData.url, src, label:(imgData.prompt||'历史图片').slice(0,30)});
+    renderVideoRefs();
+    toast('已从历史中选择图片');
+    return;
+  }
   // If it's a local file, upload it to get base64
   if(imgData.local_path){
     try{
@@ -1887,20 +2513,13 @@ async function selectPickerImage(src, imgData){
       const blob = await fetch(src).then(r=>r.blob());
       const fd = new FormData();
       fd.append('file', blob, 'selected.png');
-      const d = await fetch('/api/upload-image',{method:'POST',body:fd}).then(r=>r.json());
-      imageBase64 = d.data_uri || '';
-      $('vid-upload-preview').src = src;
-      $('vid-upload-preview').style.display = 'block';
-      $('vid-upload-text').textContent = (imgData.prompt||'').slice(0,30) + ' (从历史选择)';
+      const res = await fetch('/api/upload-image',{method:'POST',body:fd});
+      if(!res.ok) throw new Error('上传历史图片失败');
+      const d = await res.json();
+      if(d.data_uri) videoImageInputs.push({value:d.data_uri, src, label:(imgData.prompt||'历史图片').slice(0,30)});
+      renderVideoRefs();
       toast('已从历史中选择图片');
     }catch(e){ toast('选择图片失败: '+e.message,'error') }
-  } else if(imgData.url){
-    // Use URL directly - server will handle it
-    imageBase64 = imgData.url;
-    $('vid-upload-preview').src = src;
-    $('vid-upload-preview').style.display = 'block';
-    $('vid-upload-text').textContent = (imgData.prompt||'').slice(0,30) + ' (从历史选择)';
-    toast('已从历史中选择图片');
   }
 }
 
@@ -1908,7 +2527,9 @@ async function generateVideo(){
   const prompt = $('vid-prompt').value.trim();
   if(!prompt){ toast('请输入 Prompt','error'); return }
   const mode = $('vid-mode').value;
-  if(mode==='image' && !imageBase64){ toast('请上传图片','error'); return }
+  const refs = videoImageInputs.map(item => item.value).filter(Boolean);
+  if(videoModeRequiresImages(mode) && !refs.length){ toast('请上传或选择参考图片','error'); return }
+  if(mode === 'keyframes' && refs.length < 2){ toast('关键帧动画至少需要 2 张参考图片','error'); return }
 
   const btn = $('vid-generate-btn');
   btn.disabled = true;
@@ -1924,11 +2545,12 @@ async function generateVideo(){
         resolution: $('vid-resolution').value,
         fps: parseInt($('vid-fps').value),
         duration_seconds: parseInt($('vid-duration').value),
-        image_base64: imageBase64,
+        image_base64: refs[0] || '',
+        image_inputs: refs,
       })
     });
     toast('视频任务已创建 ' + d.task_id);
-    loadVideoTasks();
+    loadVideoTasks({autoPoll:true});
     startVideoPolling();
   }catch(e){
     toast(e.message,'error');
@@ -1938,11 +2560,53 @@ async function generateVideo(){
   }
 }
 
-async function loadVideoTasks(){
+function isActiveVideoStatus(status){
+  return ['queued','in_progress','pending','processing','running','generating','rendering'].includes(String(status || '').toLowerCase());
+}
+
+function hasActiveVideoTasks(tasks){
+  return (tasks || []).some(t => isActiveVideoStatus(t.status));
+}
+
+function taskAgeSeconds(createdAt){
+  if(!createdAt) return 0;
+  let created;
+  if(typeof createdAt === 'number' || (typeof createdAt === 'string' && /^\d{10,}$/.test(createdAt))){
+    created = new Date(parseInt(createdAt, 10) * 1000);
+  }else{
+    created = new Date(createdAt);
+  }
+  const timestamp = created.getTime();
+  if(Number.isNaN(timestamp)) return 0;
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+}
+
+function displayVideoProgress(task){
+  const status = String(task.status || 'queued').toLowerCase();
+  const raw = Number(task.progress) || 0;
+  if(status === 'completed') return 100;
+  if(status === 'failed') return raw;
+  if(raw > 0) return raw;
+  const age = taskAgeSeconds(task.created_at);
+  if(['in_progress','processing','running','generating','rendering'].includes(String(status).toLowerCase())){
+    return Math.min(95, Math.max(12, Math.floor(age / 4)));
+  }
+  if(['queued','pending'].includes(String(status).toLowerCase())){
+    return Math.min(35, Math.max(5, Math.floor(age / 8)));
+  }
+  return raw;
+}
+
+async function loadVideoTasks(options={}){
   try{
     const d = await api('/api/video/tasks');
-    renderVideoTasks(d.tasks || []);
-  }catch(e){}
+    const tasks = d.tasks || [];
+    renderVideoTasks(tasks);
+    if(options.autoPoll && hasActiveVideoTasks(tasks)) startVideoPolling();
+    return tasks;
+  }catch(e){
+    return [];
+  }
 }
 
 function renderVideoTasks(tasks){
@@ -1952,31 +2616,53 @@ function renderVideoTasks(tasks){
   $('vid-task-count').textContent = tasks.length + ' 个任务';
   tasks.sort((a,b)=> (fmtTime(b.created_at)||'').localeCompare(fmtTime(a.created_at)||''));
   tasks.forEach(t => {
-    const status = t.status || 'queued';
-    const progress = t.progress || 0;
-    const isStuck = (status === 'queued' || status === 'in_progress') && progress === 0;
-    const badgeClass = {completed:'badge-success',failed:'badge-danger',in_progress:'badge-warning',queued:'badge-muted'}[status]||'badge-muted';
-    const statusText = {completed:'已完成',failed:'失败',in_progress:'生成中',queued:'队列中'}[status]||status;
+    const status = String(t.status || 'queued').toLowerCase();
+    const rawProgress = Number(t.progress) || 0;
+    const progress = displayVideoProgress(t);
+    const isActiveWithoutServerProgress = isActiveVideoStatus(status) && rawProgress === 0;
+    const isStuck = isActiveWithoutServerProgress;
+    const badgeClass = {completed:'badge-success',failed:'badge-danger',in_progress:'badge-warning',processing:'badge-warning',running:'badge-warning',generating:'badge-warning',rendering:'badge-warning',queued:'badge-muted',pending:'badge-muted'}[status]||'badge-muted';
+    const statusText = {completed:'已完成',failed:'失败',in_progress:'生成中',processing:'生成中',running:'生成中',generating:'生成中',rendering:'生成中',queued:'队列中',pending:'队列中'}[status]||status;
+    const promptText = String(t.prompt || '');
+    const promptShort = promptText.length > 60 ? promptText.slice(0,60) + '…' : promptText;
+    const promptHtml = promptText ? escapeHtml(promptShort) : '<span style="color:var(--text-muted)">无</span>';
+    const taskId = String(t.task_id || '');
+    const errorText = String(t.error || '');
+    const errorShort = errorText.length > 120 ? errorText.slice(0,120) + '…' : errorText;
     const tr = document.createElement('tr');
     tr.style.cursor = status === 'completed' ? 'pointer' : 'default';
     if(status === 'completed') tr.onclick = ()=> selectVideoTask(t);
     tr.innerHTML = `
-      <td class="truncate" title="${(t.prompt||'').replace(/"/g,'&quot;')}" style="max-width:200px;font-size:13px;color:var(--text-primary)">${t.prompt ? t.prompt.length > 60 ? t.prompt.slice(0,60)+'…' : t.prompt : '<span style="color:var(--text-muted)">无</span>'}</td>
-      <td class="truncate" title="${t.task_id}">${t.task_id}</td>
+      <td class="truncate" title="${escapeAttr(promptText)}" style="max-width:200px;font-size:13px;color:var(--text-primary)">${promptHtml}</td>
+      <td class="truncate" title="${escapeAttr(taskId)}">${escapeHtml(taskId)}</td>
       <td>
         <span class="badge ${badgeClass}">${statusText}</span>
-        ${t.error ? `<div class="task-error" style="font-size:11px;color:var(--danger);margin-top:4px;max-width:220px;word-break:break-word;line-height:1.4;cursor:help" onclick="alert(this.title)" title="${t.error.replace(/"/g,'&quot;').replace(/</g,'&lt;')}">${t.error.length > 120 ? t.error.slice(0,120)+'…' : t.error}</div>` : ''}
+        ${errorText ? `<div class="task-error" style="font-size:11px;color:var(--danger);margin-top:4px;max-width:220px;word-break:break-word;line-height:1.4;cursor:help" title="${escapeAttr(errorText)}">${escapeHtml(errorShort)}</div>` : ''}
       </td>
       <td style="min-width:120px">
         <div style="display:flex;align-items:center;gap:8px">
-          <div class="progress" style="flex:1"><div class="progress-bar ${status==='completed'?'success':''}" style="width:${progress}%"></div></div>
+          <div class="progress" style="flex:1"><div class="progress-bar ${status==='completed'?'success':''} ${isActiveWithoutServerProgress?'indeterminate':''}" style="width:${progress}%"></div></div>
           <span style="font-size:12px;color:var(--text-muted)">${progress}%</span>
         </div>
       </td>
       <td style="font-size:12px;color:var(--text-muted)">${fmtTime(t.created_at)}</td>
-      <td>
-        ${isStuck ? `<button class="btn btn-ghost" style="color:var(--danger);font-size:11px;padding:4px 8px" onclick="event.stopPropagation();cancelTask('${t.task_id}')">取消</button>` : ''}
-      </td>`;
+      <td class="task-actions"></td>`;
+    const err = tr.querySelector('.task-error');
+    if(err) err.onclick = () => alert(errorText);
+    const actions = tr.querySelector('.task-actions');
+    if(isStuck && actions){
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'btn btn-ghost';
+      cancelBtn.style.color = 'var(--danger)';
+      cancelBtn.style.fontSize = '11px';
+      cancelBtn.style.padding = '4px 8px';
+      cancelBtn.textContent = '取消';
+      cancelBtn.onclick = (event) => {
+        event.stopPropagation();
+        cancelTask(taskId);
+      };
+      actions.appendChild(cancelBtn);
+    }
     body.appendChild(tr);
   });
 }
@@ -2042,13 +2728,15 @@ function connectVideoWs(){
 }
 
 function startVideoPolling(){
-  if(videoPollTimer) clearInterval(videoPollTimer);
+  if(videoPollTimer) return;
   let consecutiveErrors = 0;
 
   const doPoll = async () => {
     // Skip polling when page is not visible
     if(!pageVisible) return;
+    if(videoPollInFlight) return;
 
+    videoPollInFlight = true;
     try{
       const d = await api('/api/video/poll-all');
       const results = d.results || [];
@@ -2118,10 +2806,13 @@ function startVideoPolling(){
       pollInterval = Math.min(pollInterval + 2000, 15000);
       clearInterval(videoPollTimer);
       videoPollTimer = setInterval(doPoll, pollInterval);
+    }finally{
+      videoPollInFlight = false;
     }
   };
 
   pollInterval = 3000;
+  doPoll();
   videoPollTimer = setInterval(doPoll, pollInterval);
 }
 
@@ -2162,6 +2853,7 @@ async function loadHistory(){
 function renderHistory(records){
   const body = $('hist-body');
   body.innerHTML = '';
+  historyImageSets = {};
   $('hist-empty').style.display = records.length ? 'none' : 'flex';
   records.forEach(r => {
     const kind = r.kind === 'video' ? '视频' : '图片';
@@ -2171,15 +2863,18 @@ function renderHistory(records){
 
     // Build preview thumbnail
     let previewHtml = '';
+    let actionHtml = '';
     if(r.kind === 'image'){
-      const urls = (r.result_url||'').split(',').map(s=>s.trim()).filter(Boolean);
-      const paths = (r.local_path||'').split(',').map(s=>s.trim()).filter(Boolean);
-      let imgSrc = '';
-      if(paths[0]) imgSrc = '/api/file?path=' + encodeURIComponent(paths[0]);
-      else if(urls[0]) imgSrc = urls[0];
+      const items = imageItemsFromHistoryRecord(r);
+      const imageSetKey = 'hist-img-' + r.id;
+      historyImageSets[imageSetKey] = items;
+      const imgSrc = items.length ? imageItemSrc(items[0]) : '';
       if(imgSrc){
-        const countBadge = urls.length > 1 ? `<span class="preview-count">${urls.length}</span>` : '';
-        previewHtml = `<div class="preview-thumb-wrap"><div class="preview-thumb" onclick="openPreview('${imgSrc}')"><img src="${imgSrc}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'" /></div>${countBadge}</div>`;
+        const countBadge = items.length > 1 ? `<span class="preview-count">${items.length}</span>` : '';
+        previewHtml = `<div class="preview-thumb-wrap"><div class="preview-thumb" onclick="openImageSet('${imageSetKey}',0)"><img src="${escapeAttr(imgSrc)}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'" /></div>${countBadge}</div>`;
+        actionHtml = `
+          <button class="btn btn-ghost" onclick="openImageSet('${imageSetKey}',0)">${items.length > 1 ? '预览全部' : '预览'}</button>
+          <button class="btn btn-ghost" onclick="downloadImageSet('${imageSetKey}')">${items.length > 1 ? '下载全部' : '下载'}</button>`;
       } else {
         previewHtml = '<div class="preview-thumb"><span class="thumb-placeholder">无预览</span></div>';
       }
@@ -2191,7 +2886,10 @@ function renderHistory(records){
         const streamSrc = videoSrc.includes('storage.googleapis.com')
           ? '/api/video/stream/' + (r.task_id||'')
           : videoSrc;
-        previewHtml = `<div class="preview-thumb" onclick="openPreview('${streamSrc}')"><video src="${streamSrc}" preload="metadata" muted onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'"></video></div>`;
+        previewHtml = `<div class="preview-thumb" onclick="openPreview('${escapeJsAttr(streamSrc)}')"><video src="${escapeAttr(streamSrc)}" preload="metadata" muted onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'"></video></div>`;
+        actionHtml = `
+          <button class="btn btn-ghost" onclick="openPreview('${escapeJsAttr(streamSrc)}')">预览</button>
+          <button class="btn btn-ghost" onclick="window.open('${escapeJsAttr(streamSrc)}','_blank')">下载</button>`;
       } else {
         previewHtml = '<div class="preview-thumb"><span class="thumb-placeholder">无预览</span></div>';
       }
@@ -2203,12 +2901,11 @@ function renderHistory(records){
       <td>${r.id}</td>
       <td><span class="badge ${r.kind==='video'?'badge-info':'badge-muted'}">${kind}</span></td>
       <td style="font-size:12px;color:var(--text-muted)">${fmtTime(r.created_at)}</td>
-      <td class="truncate">${r.prompt||''}</td>
-      <td style="font-size:12px">${r.model||''}</td>
+      <td class="truncate">${escapeHtml(r.prompt || '')}</td>
+      <td style="font-size:12px">${escapeHtml(r.model || '')}</td>
       <td><span class="badge ${badgeClass}">${statusText}</span></td>
       <td>
-        ${r.result_url ? `<button class="btn btn-ghost" onclick="openPreview('${r.result_url.split(',')[0].trim()}')">预览</button>` : ''}
-        ${r.result_url ? `<button class="btn btn-ghost" onclick="window.open('${r.result_url.split(',')[0].trim()}'.includes('storage.googleapis.com')?'/api/video/stream/${r.task_id||''}':'${r.result_url.split(',')[0].trim()}','_blank')">下载</button>` : ''}
+        ${actionHtml}
         <button class="btn btn-ghost" style="color:var(--danger)" onclick="deleteHistory('${r.kind}',${r.id})">删除</button>
       </td>`;
     body.appendChild(tr);
@@ -2220,6 +2917,7 @@ async function deleteHistory(kind, id){
     await api(`/api/history/${kind}/${id}`,{method:'DELETE'});
     toast('已删除');
     loadHistory();
+    if(kind === 'image') loadImagePreviewFromHistory();
   }catch(e){ toast(e.message,'error') }
 }
 
@@ -2229,6 +2927,7 @@ async function clearHistory(){
     await api('/api/history',{method:'DELETE'});
     toast('历史已清空');
     loadHistory();
+    loadImagePreviewFromHistory();
   }catch(e){ toast(e.message,'error') }
 }
 
@@ -2254,13 +2953,13 @@ function renderDownloads(list){
     if(dl.status === 'completed' && dl.save_path){
       const fileSrc = '/api/file?path=' + encodeURIComponent(dl.save_path);
       if(dl.file_type === 'image'){
-        previewHtml = `<div class="preview-thumb" onclick="openPreview('${fileSrc}')"><img src="${fileSrc}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'" /></div>`;
+        previewHtml = `<div class="preview-thumb" onclick="openPreview('${escapeJsAttr(fileSrc)}')"><img src="${escapeAttr(fileSrc)}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'" /></div>`;
       } else {
-        previewHtml = `<div class="preview-thumb" onclick="openPreview('${fileSrc}')"><video src="${fileSrc}" preload="metadata" muted onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'"></video></div>`;
+        previewHtml = `<div class="preview-thumb" onclick="openPreview('${escapeJsAttr(fileSrc)}')"><video src="${escapeAttr(fileSrc)}" preload="metadata" muted onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载失败</span>'"></video></div>`;
       }
     } else if(dl.url){
       if(dl.file_type === 'image'){
-        previewHtml = `<div class="preview-thumb" onclick="openPreview('${dl.url}')"><img src="${dl.url}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载中</span>'" /></div>`;
+        previewHtml = `<div class="preview-thumb" onclick="openPreview('${escapeJsAttr(dl.url)}')"><img src="${escapeAttr(dl.url)}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=\\'thumb-placeholder\\'>加载中</span>'" /></div>`;
       } else {
         previewHtml = `<div class="preview-thumb"><span class="thumb-placeholder">下载中</span></div>`;
       }
@@ -2271,8 +2970,8 @@ function renderDownloads(list){
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="padding:6px 12px">${previewHtml}</td>
-      <td class="truncate">${dl.file_name||''}</td>
-      <td>${dl.file_type||''}</td>
+      <td class="truncate">${escapeHtml(dl.file_name || '')}</td>
+      <td>${escapeHtml(dl.file_type || '')}</td>
       <td style="min-width:100px">
         <div class="progress"><div class="progress-bar ${dl.status==='completed'?'success':''}" style="width:${progress}%"></div></div>
       </td>
@@ -2334,7 +3033,7 @@ function renderChatImagePreview(){
   chatPendingImages.forEach((img, idx) => {
     const wrap = document.createElement('div');
     wrap.className = 'chat-image-preview';
-    wrap.innerHTML = `<img src="${img.dataUri}" alt="preview" /><button class="remove-img" onclick="removeChatImage(${idx})" title="移除">x</button>`;
+    wrap.innerHTML = `<img src="${escapeAttr(img.dataUri)}" alt="preview" /><button class="remove-img" onclick="removeChatImage(${idx})" title="移除">x</button>`;
     area.appendChild(wrap);
   });
 }
@@ -2413,7 +3112,7 @@ function addChatBubble(role, content, imageUrls){
   const roleLabel = role === 'user' ? '你' : 'Agnes-2.0-Flash';
   let imagesHtml = '';
   if(imageUrls && imageUrls.length){
-    imagesHtml = imageUrls.map(u => `<img class="chat-img-in-msg" src="${u}" alt="uploaded image" />`).join('');
+    imagesHtml = imageUrls.map(u => `<img class="chat-img-in-msg" src="${escapeAttr(u)}" alt="uploaded image" />`).join('');
   }
   div.innerHTML = `<div class="msg-role">${roleLabel}</div><div class="msg-bubble">${imagesHtml}${escapeHtml(content)}</div>`;
   container.appendChild(div);
@@ -2434,8 +3133,25 @@ function addChatError(msg){
 
 function escapeHtml(s){
   const d = document.createElement('div');
-  d.textContent = s;
+  d.textContent = String(s ?? '');
   return d.innerHTML;
+}
+
+function escapeAttr(s){
+  return escapeHtml(s).replace(/'/g, '&#39;');
+}
+
+function escapeJsString(s){
+  return String(s ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/</g, '\\x3c');
+}
+
+function escapeJsAttr(s){
+  return escapeAttr(escapeJsString(s));
 }
 
 async function sendChatMessage(){
@@ -2576,13 +3292,13 @@ async function sendChatMessage(){
 
                 // Render image inline
                 if(tr.name === 'generate_image' && result.image_url){
-                  statusHtml += `<div class="tool-media"><img src="${result.image_url}" alt="Generated image" loading="lazy" /></div>`;
+                  statusHtml += `<div class="tool-media"><img src="${escapeAttr(result.image_url)}" alt="Generated image" loading="lazy" /></div>`;
                 }
                 // Render video task card
                 if(tr.name === 'generate_video' && result.task_id){
                   statusHtml += `<div class="tool-media"><div class="video-pending"><span class="spinner"></span> 视频生成中(任务 ${result.task_id.slice(0,8)}）。完成后会在「视频生成」页面显示</div></div>`;
                   // Start polling so the video page updates
-                  loadVideoTasks();
+                  loadVideoTasks({autoPoll:true});
                   startVideoPolling();
                 }
                 lastCard.querySelector('.tool-status').outerHTML = statusHtml;
@@ -2794,9 +3510,13 @@ async function deleteChatConversation(id){
 
 // ── Init ──
 initUiTheme();
+updateImageSizes();
+renderImageRefs();
+toggleVidMode();
 updateChatLayoutState();
 loadConfig();
-loadVideoTasks();
+loadImagePreviewFromHistory();
+loadVideoTasks({autoPoll:true});
 loadChatConversations();
 connectVideoWs();
 </script>

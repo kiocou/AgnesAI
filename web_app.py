@@ -38,7 +38,7 @@ from utils.logging_utils import LOGGER
 app = FastAPI(title="Agnes AI Client", version="3.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"https?://(127\.0\.0\.1|localhost)(:\d+)?",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -113,6 +113,7 @@ class ImageGenerateRequest(BaseModel):
     size: str = "1024x1024"
     count: int = 1
     seed: str = ""
+    input_images: list[str] = Field(default_factory=list)
 
 class VideoCreateRequest(BaseModel):
     prompt: str
@@ -123,6 +124,7 @@ class VideoCreateRequest(BaseModel):
     fps: int = 24
     duration_seconds: int = 5
     image_base64: str = ""
+    image_inputs: list[str] = Field(default_factory=list)
 
 class DownloadRequest(BaseModel):
     url: str
@@ -219,19 +221,143 @@ def _get_client() -> AgnesClient:
     return _get_shared_client()
 
 
+def _validate_api_config(api_key: str, base_url: str) -> None:
+    if not api_key.strip():
+        raise HTTPException(400, "请输入 API Key")
+
+    client = AgnesClient(api_key=api_key.strip(), base_url=base_url.strip(), timeout=20)
+    try:
+        client.request(
+            "POST",
+            "/chat/completions",
+            json_payload={
+                "model": "agnes-2.0-flash",
+                "messages": [{"role": "user", "content": "ping"}],
+                "temperature": 0,
+                "max_tokens": 1,
+                "stream": False,
+            },
+            timeout=20,
+        )
+    except AgnesAPIError as exc:
+        raise HTTPException(400, f"API Key 验证失败：{exc}") from exc
+    except Exception as exc:
+        LOGGER.exception("API Key validation failed")
+        raise HTTPException(400, f"API Key 验证失败：{exc}") from exc
+    finally:
+        try:
+            client.session.close()
+        except Exception:
+            pass
+
+
+def _clean_string_list(values: list[Any] | None) -> list[str]:
+    cleaned: list[str] = []
+    for value in values or []:
+        if isinstance(value, str) and value.strip():
+            cleaned.append(value.strip())
+    return cleaned
+
+
+def _video_image_inputs(body: VideoCreateRequest) -> list[str]:
+    inputs = _clean_string_list(body.image_inputs)
+    if body.image_base64.strip() and body.image_base64.strip() not in inputs:
+        inputs.insert(0, body.image_base64.strip())
+    return inputs
+
+
+def _summarize_image_inputs(inputs: list[str]) -> str:
+    if not inputs:
+        return ""
+    summary: list[str] = []
+    for value in inputs[:8]:
+        if value.startswith("data:"):
+            mime = value.split(";", 1)[0].removeprefix("data:") or "image"
+            summary.append(f"{mime} data URI")
+        elif value.startswith(("http://", "https://")):
+            summary.append(value[:160])
+        else:
+            summary.append(Path(value).name[:160])
+    if len(inputs) > 8:
+        summary.append(f"... {len(inputs) - 8} more")
+    return json.dumps(summary, ensure_ascii=False)
+
+
+def _video_query_context(task_id: str) -> tuple[str, str]:
+    with _poll_lock:
+        record = _active_video_tasks.get(task_id)
+        if record:
+            return str(record.get("video_id") or ""), str(record.get("model") or "agnes-video-v2.0")
+    for record in db.list_video_tasks(active_only=False):
+        if record.get("task_id") == task_id:
+            return str(record.get("video_id") or ""), str(record.get("model") or "agnes-video-v2.0")
+    return "", "agnes-video-v2.0"
+
+
+_ALLOWED_FILE_ROOTS = (
+    IMAGE_HISTORY_DIR.resolve(),
+    VIDEO_HISTORY_DIR.resolve(),
+    DOWNLOADS_DIR.resolve(),
+)
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def _resolve_allowed_file_path(path: str) -> Path:
+    try:
+        resolved = Path(path).expanduser().resolve()
+    except OSError as exc:
+        raise HTTPException(400, "文件路径无效") from exc
+    if not any(_is_within(resolved, root) for root in _ALLOWED_FILE_ROOTS):
+        raise HTTPException(403, "只能访问应用生成或下载目录中的文件")
+    return resolved
+
+
+def _resolve_download_target(save_path: str, file_name: str) -> str:
+    root = DOWNLOADS_DIR.resolve()
+    requested = save_path.strip()
+    target = Path(requested).expanduser() if requested else root / file_name
+    if not target.is_absolute():
+        target = root / target
+    try:
+        resolved = target.resolve()
+    except OSError as exc:
+        raise HTTPException(400, "保存路径无效") from exc
+    if resolved == root or not _is_within(resolved, root):
+        raise HTTPException(400, "下载文件只能保存到应用 downloads 目录")
+    return str(resolved)
+
+
+def _mask_secret(value: str) -> str:
+    value = value.strip()
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return "*" * len(value)
+    return f"{value[:4]}...{value[-4:]}"
+
+
 # ─────────────── Config ───────────────
 
 @app.get("/api/config")
 def get_config():
     return {
-        "api_key": config.api_key,
+        "api_key": "",
+        "api_key_preview": _mask_secret(config.api_key),
         "base_url": config.base_url,
+        "configured": bool(config.api_key.strip()),
     }
 
 @app.post("/api/config")
 def save_config(body: ConfigModel):
-    config.api_key = body.api_key.strip()
-    config.base_url = body.base_url.strip() or "https://apihub.agnes-ai.com/v1"
+    api_key = body.api_key.strip() or config.api_key.strip()
+    base_url = body.base_url.strip() or "https://apihub.agnes-ai.com/v1"
+    _validate_api_config(api_key, base_url)
+
+    config.api_key = api_key
+    config.base_url = base_url
     config.save()
     return {"ok": True}
 
@@ -247,6 +373,7 @@ def generate_images(body: ImageGenerateRequest):
 
     results: list[dict] = []
     try:
+        input_images = _clean_string_list(body.input_images)
         image_results = gen.generate(
             prompt=body.prompt.strip(),
             negative_prompt=body.negative_prompt.strip(),
@@ -254,6 +381,8 @@ def generate_images(body: ImageGenerateRequest):
             size=body.size,
             count=body.count,
             seed=int(body.seed) if body.seed.strip() else None,
+            input_images=input_images,
+            response_format="url",
         )
         # download images
         local_paths: list[str] = []
@@ -261,13 +390,13 @@ def generate_images(body: ImageGenerateRequest):
         for i, img in enumerate(image_results):
             url = img.url or ""
             result_urls.append(url)
-            if url:
+            if url or img.b64_json:
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
                 prompt_short = safe_filename(body.prompt[:30])
                 fname = f"{ts}_{prompt_short}_{i+1}.png"
                 local = str(IMAGE_HISTORY_DIR / fname)
                 try:
-                    gen.download_image(url, local)
+                    gen.download_image(img, local)
                     local_paths.append(local)
                 except Exception as e:
                     LOGGER.warning("Image download failed: %s", e)
@@ -306,27 +435,24 @@ def get_image_history():
     for r in rows:
         if r.get("kind") != "image":
             continue
-        local_paths_raw = r.get("local_path", "")
-        urls_raw = r.get("result_url", "")
-        local_paths = [p.strip() for p in local_paths_raw.split(",") if p.strip()]
-        urls = [u.strip() for u in urls_raw.split(",") if u.strip()]
-        for i, lp in enumerate(local_paths):
-            if Path(lp).exists():
-                images.append({
-                    "local_path": lp,
-                    "url": urls[i] if i < len(urls) else "",
-                    "prompt": r.get("prompt", ""),
-                    "created_at": r.get("created_at", ""),
-                })
-        # Also include URL-only images if no local path
-        if not local_paths:
-            for u in urls:
-                images.append({
-                    "local_path": "",
-                    "url": u,
-                    "prompt": r.get("prompt", ""),
-                    "created_at": r.get("created_at", ""),
-                })
+        items = r.get("images") or []
+        if not isinstance(items, list):
+            items = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            local_path = str(item.get("local_path") or "").strip()
+            url = str(item.get("url") or "").strip()
+            if local_path and not Path(local_path).exists():
+                local_path = ""
+            if not local_path and not url:
+                continue
+            images.append({
+                "local_path": local_path,
+                "url": url,
+                "prompt": r.get("prompt", ""),
+                "created_at": r.get("created_at", ""),
+            })
     return {"images": images}
 
 
@@ -339,6 +465,7 @@ def create_video_task(body: VideoCreateRequest):
     client = _get_client()
     gen = VideoGenerator(client)
     try:
+        image_inputs = _video_image_inputs(body)
         task = gen.create_task(
             prompt=body.prompt.strip(),
             negative_prompt=body.negative_prompt.strip(),
@@ -347,10 +474,12 @@ def create_video_task(body: VideoCreateRequest):
             resolution=body.resolution,
             fps=body.fps,
             duration_seconds=body.duration_seconds,
-            image_path=body.image_base64 if body.mode == "image" else "",
+            image_path=image_inputs[0] if body.mode == "image" and image_inputs else "",
+            image_paths=image_inputs if body.mode in ("multi_image", "keyframes") else None,
         )
         record = {
             "task_id": task.task_id,
+            "video_id": task.video_id,
             "status": task.status,
             "progress": task.progress,
             "created_at": task.created_at,
@@ -367,6 +496,7 @@ def create_video_task(body: VideoCreateRequest):
         }
         db.insert_video_task(
             task_id=task.task_id,
+            video_id=task.video_id,
             prompt=body.prompt.strip(),
             negative_prompt=body.negative_prompt.strip(),
             model=body.model,
@@ -377,7 +507,7 @@ def create_video_task(body: VideoCreateRequest):
             status=task.status,
             progress=task.progress,
             created_at=task.created_at,
-            source_image_path=body.image_base64[:100] if body.mode == "image" else "",
+            source_image_path=_summarize_image_inputs(image_inputs),
         )
         with _poll_lock:
             _active_video_tasks[task.task_id] = record
@@ -419,7 +549,8 @@ def poll_video_task(task_id: str):
     client = _get_client()
     gen = VideoGenerator(client)
     try:
-        task = gen.query_task(task_id)
+        video_id, model = _video_query_context(task_id)
+        task = gen.query_task(task_id, video_id=video_id, model=model)
         status = task.status.lower()
         status_lower = status.lower()
         if status_lower in ("succeeded", "success", "finished", "done", "complete", "completed"):
@@ -440,6 +571,7 @@ def poll_video_task(task_id: str):
             task_id=task_id,
             status=status,
             progress=progress,
+            video_id=task.video_id,
             result_url=result_url,
             completed_at=completed_at,
             error=task.error or "",
@@ -453,9 +585,11 @@ def poll_video_task(task_id: str):
                 _active_video_tasks[task_id]["status"] = status
                 _active_video_tasks[task_id]["progress"] = progress
                 _active_video_tasks[task_id]["result_url"] = result_url
+                _active_video_tasks[task_id]["video_id"] = task.video_id
 
         return {
             "task_id": task_id,
+            "video_id": task.video_id,
             "status": status,
             "progress": progress,
             "video_url": result_url,
@@ -548,7 +682,8 @@ def _do_poll_single_task(task_id: str, gen: VideoGenerator, now: float) -> dict:
 
     # ── Normal API poll ──
     try:
-        task = gen.query_task(task_id)
+        video_id, model = _video_query_context(task_id)
+        task = gen.query_task(task_id, video_id=video_id, model=model)
         status = task.status.lower()
         status_lower = status.lower()
         if status_lower in ("succeeded", "success", "finished", "done", "complete", "completed"):
@@ -577,6 +712,7 @@ def _do_poll_single_task(task_id: str, gen: VideoGenerator, now: float) -> dict:
             task_id=task_id,
             status=status,
             progress=progress,
+            video_id=task.video_id,
             result_url=result_url,
             completed_at=completed_at,
             error=task.error or "",
@@ -599,9 +735,12 @@ def _do_poll_single_task(task_id: str, gen: VideoGenerator, now: float) -> dict:
             with _poll_lock:
                 _active_video_tasks[task_id]["status"] = status
                 _active_video_tasks[task_id]["progress"] = progress
+                _active_video_tasks[task_id]["video_id"] = task.video_id
+                _active_video_tasks[task_id]["result_url"] = result_url
 
         return {
             "task_id": task_id,
+            "video_id": task.video_id,
             "status": status,
             "progress": progress,
             "video_url": result_url,
@@ -884,7 +1023,8 @@ def add_download(body: DownloadRequest):
     if not body.url:
         raise HTTPException(400, "缺少下载链接")
     file_name = body.file_name or safe_filename(body.url.split("/")[-1][:80]) or "download"
-    save_path = body.save_path or str(DOWNLOADS_DIR / file_name)
+    file_name = safe_filename(Path(file_name).name, "download")
+    save_path = _resolve_download_target(body.save_path, file_name)
 
     record = {
         "file_name": file_name,
@@ -954,6 +1094,7 @@ def _execute_tool_call(client: AgnesClient, name: str, arguments: dict) -> dict:
             # Register for background polling
             record = {
                 "task_id": task.task_id,
+                "video_id": task.video_id,
                 "status": task.status,
                 "progress": task.progress,
                 "created_at": task.created_at,
@@ -970,6 +1111,7 @@ def _execute_tool_call(client: AgnesClient, name: str, arguments: dict) -> dict:
             }
             db.insert_video_task(
                 task_id=task.task_id,
+                video_id=task.video_id,
                 prompt=arguments.get("prompt", ""),
                 negative_prompt=arguments.get("negative_prompt", ""),
                 model="agnes-video-v2.0",
@@ -1316,7 +1458,7 @@ def download_logs():
 @app.get("/api/file")
 def serve_local_file(path: str):
     """Serve a local file (image or video) by absolute path."""
-    p = Path(path)
+    p = _resolve_allowed_file_path(path)
     if not p.exists():
         raise HTTPException(404, "文件不存在")
     return FileResponse(str(p))

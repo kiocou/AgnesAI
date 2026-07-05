@@ -61,8 +61,13 @@ class ImageGenerator:
         size: str = "1024x1024",
         count: int = 1,
         seed: int | None = None,
+        input_images: list[str] | None = None,
+        response_format: str = "url",
+        return_base64: bool = False,
     ) -> list[ImageResult]:
         request_count = max(1, min(int(count), 4))
+        images = [img.strip() for img in (input_images or []) if isinstance(img, str) and img.strip()]
+        output_format = "b64_json" if return_base64 else (response_format or "url").strip() or "url"
         results: list[ImageResult] = []
         for _ in range(request_count):
             payload: dict[str, Any] = {
@@ -70,6 +75,12 @@ class ImageGenerator:
                 "prompt": prompt,
                 "size": size,
             }
+            extra_body: dict[str, Any] = {"response_format": output_format}
+            if images:
+                extra_body["image"] = images
+            if return_base64 and not images:
+                payload["return_base64"] = True
+            payload["extra_body"] = extra_body
             if negative_prompt.strip():
                 payload["negative_prompt"] = negative_prompt.strip()
             if seed is not None:

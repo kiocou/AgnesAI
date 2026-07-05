@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 import json
 import sqlite3
 import threading
@@ -21,10 +23,18 @@ class HistoryDatabase:
         self._lock = threading.RLock()
         self._init_db()
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         conn = sqlite3.connect(self.path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def _init_db(self) -> None:
         with self._lock, self._connect() as conn:
@@ -46,6 +56,7 @@ class HistoryDatabase:
                 CREATE TABLE IF NOT EXISTS video_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     task_id TEXT UNIQUE NOT NULL,
+                    video_id TEXT DEFAULT '',
                     prompt TEXT NOT NULL,
                     negative_prompt TEXT DEFAULT '',
                     model TEXT NOT NULL,
@@ -87,12 +98,27 @@ class HistoryDatabase:
                 """
             )
             self._ensure_column(conn, "video_history", "source_image_path", "TEXT DEFAULT ''")
+            self._ensure_column(conn, "video_history", "video_id", "TEXT DEFAULT ''")
 
     @staticmethod
     def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
         columns = [row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
         if column not in columns:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+    @staticmethod
+    def _decode_json_list(value: Any) -> list[str]:
+        if isinstance(value, list):
+            return [str(item) if item is not None else "" for item in value]
+        if not isinstance(value, str) or not value.strip():
+            return []
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            return [part.strip() for part in value.split(",")]
+        if isinstance(decoded, list):
+            return [str(item) if item is not None else "" for item in decoded]
+        return []
 
     def insert_image_history(
         self,
@@ -131,6 +157,7 @@ class HistoryDatabase:
         self,
         *,
         task_id: str,
+        video_id: str = "",
         prompt: str,
         negative_prompt: str,
         model: str,
@@ -147,13 +174,16 @@ class HistoryDatabase:
             cursor = conn.execute(
                 """
                 INSERT OR REPLACE INTO video_history
-                (task_id, prompt, negative_prompt, model, mode, resolution, duration_seconds, fps,
+                (task_id, video_id, prompt, negative_prompt, model, mode, resolution, duration_seconds, fps,
                  status, progress, result_url, local_path, source_image_path, created_at, completed_at, error)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT result_url FROM video_history WHERE task_id=?), ''),
+                VALUES (?, COALESCE(NULLIF(?, ''), (SELECT video_id FROM video_history WHERE task_id=?), ''),
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT result_url FROM video_history WHERE task_id=?), ''),
                         COALESCE((SELECT local_path FROM video_history WHERE task_id=?), ''),
                         ?, COALESCE(NULLIF(?, ''), ?), '', '')
                 """,
                 (
+                    task_id,
+                    video_id,
                     task_id,
                     prompt,
                     negative_prompt,
@@ -183,6 +213,7 @@ class HistoryDatabase:
         completed_at: str = "",
         error: str = "",
         local_path: str = "",
+        video_id: str = "",
     ) -> None:
         with self._lock, self._connect() as conn:
             conn.execute(
@@ -190,13 +221,14 @@ class HistoryDatabase:
                 UPDATE video_history
                 SET status = ?,
                     progress = ?,
+                    video_id = COALESCE(NULLIF(?, ''), video_id),
                     result_url = COALESCE(NULLIF(?, ''), result_url),
                     completed_at = COALESCE(NULLIF(?, ''), completed_at),
                     error = COALESCE(NULLIF(?, ''), error),
                     local_path = COALESCE(NULLIF(?, ''), local_path)
                 WHERE task_id = ?
                 """,
-                (status, progress, result_url, completed_at, error, local_path, task_id),
+                (status, progress, video_id, result_url, completed_at, error, local_path, task_id),
             )
 
     def search_history(self, keyword: str = "") -> list[dict[str, Any]]:
@@ -207,7 +239,7 @@ class HistoryDatabase:
                 """
                 SELECT id, 'image' AS kind, created_at, model, prompt, negative_prompt,
                        size AS meta, result_urls AS result_url, local_paths AS local_path, '' AS status,
-                       size, count, seed, '' AS task_id, '' AS mode, '' AS resolution,
+                       size, count, seed, '' AS task_id, '' AS video_id, '' AS mode, '' AS resolution,
                        0 AS duration_seconds, 0 AS fps
                 FROM image_history
                 WHERE prompt LIKE ? OR model LIKE ?
@@ -220,7 +252,7 @@ class HistoryDatabase:
                 SELECT id, 'video' AS kind, created_at, model, prompt, negative_prompt,
                        resolution || ' / ' || duration_seconds || 's' AS meta,
                        result_url, local_path, status,
-                       '' AS size, 0 AS count, '' AS seed, task_id, mode, resolution,
+                       '' AS size, 0 AS count, '' AS seed, task_id, video_id, mode, resolution,
                        source_image_path,
                        duration_seconds, fps
                 FROM video_history
@@ -233,8 +265,20 @@ class HistoryDatabase:
         for row in image_rows + video_rows:
             item = dict(row)
             if item["kind"] == "image":
-                item["result_url"] = ", ".join(json.loads(item["result_url"] or "[]"))
-                item["local_path"] = ", ".join(json.loads(item["local_path"] or "[]"))
+                result_urls = self._decode_json_list(item["result_url"])
+                local_paths = self._decode_json_list(item["local_path"])
+                image_count = max(len(result_urls), len(local_paths), int(item.get("count") or 0))
+                images: list[dict[str, str]] = []
+                for index in range(image_count):
+                    url = result_urls[index] if index < len(result_urls) else ""
+                    local_path = local_paths[index] if index < len(local_paths) else ""
+                    if url or local_path:
+                        images.append({"url": url, "local_path": local_path})
+                item["result_urls"] = result_urls
+                item["local_paths"] = local_paths
+                item["images"] = images
+                item["result_url"] = ", ".join(url for url in result_urls if url)
+                item["local_path"] = ", ".join(path for path in local_paths if path)
             rows.append(item)
         rows.sort(key=lambda value: value["created_at"], reverse=True)
         return rows
@@ -260,7 +304,7 @@ class HistoryDatabase:
                 rows = conn.execute(
                     """
                     SELECT * FROM video_history
-                    WHERE status IN ('queued', 'in_progress')
+                    WHERE status IN ('queued', 'pending', 'in_progress', 'processing', 'running', 'generating', 'rendering')
                     ORDER BY created_at DESC
                     """
                 ).fetchall()

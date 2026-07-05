@@ -2,7 +2,7 @@
 
 > AI Creative Studio — 一站式 AI 图片生成、视频生成、智能对话创作平台
 
-Agnes AI Studio 是一个基于 Agnes AI 服务的创意工作站，提供网页端与桌面客户端两种使用方式。集成文生图、图生图、文生视频、图生视频、AI 对话（含工具调用）、下载管理、历史记录等完整创作流程。
+Agnes AI Studio 是一个基于 Agnes AI 服务的 Web 创意工作站。集成文生图、图生图、文生视频、图生视频、AI 对话（含工具调用）、下载管理、历史记录等完整创作流程。
 
 ## 功能特性
 
@@ -85,14 +85,6 @@ python web_app.py
 
 默认 API 地址：`https://apihub.agnes-ai.com/v1`
 
-### 桌面客户端（可选）
-
-项目同时提供基于 PySide6 的原生桌面客户端，入口为 `main.py`：
-
-```bash
-python main.py
-```
-
 ## 打包发布
 
 使用项目内的 spec 文件进行 PyInstaller 打包：
@@ -108,7 +100,6 @@ pyinstaller --clean --noconfirm AgnesAI.spec
 ```
 AgnesAI/
 ├── web_app.py              # FastAPI Web 服务入口
-├── main.py                 # PySide6 桌面客户端入口
 ├── AgnesAI.spec            # PyInstaller 打包配置
 ├── requirements.txt        # Python 依赖
 ├── api/
@@ -119,7 +110,6 @@ AgnesAI/
 │   └── download.py         # 下载管理器
 ├── web/
 │   └── index.html          # Web 前端（单文件应用）
-├── ui/                     # PySide6 桌面 UI 模块
 ├── config/
 │   ├── app_config.py       # 配置管理
 │   └── config.example.json # 配置示例
