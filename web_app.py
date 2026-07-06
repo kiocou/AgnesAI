@@ -35,7 +35,8 @@ from utils.path_utils import (
 from utils.logging_utils import LOGGER
 
 # ── App ──
-app = FastAPI(title="Agnes AI Client", version="3.0")
+APP_VERSION = "3.1.1"
+app = FastAPI(title="Agnes AI Client", version=APP_VERSION)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"https?://(127\.0\.0\.1|localhost)(:\d+)?",
@@ -197,13 +198,30 @@ _CREATIVE_TOOLS: list[dict] = [
                     },
                     "resolution": {
                         "type": "string",
-                        "enum": ["1152x768", "768x1152"],
-                        "description": "Video resolution. 1152x768 for landscape, 768x1152 for portrait. Default 1152x768."
+                        "enum": [
+                            "1152x768",
+                            "1536x1024",
+                            "1280x720",
+                            "1920x1088",
+                            "720x1280",
+                            "1088x1920",
+                            "512x512",
+                            "768x768",
+                            "1024x1024",
+                            "768x1152",
+                            "1024x1536",
+                            "1024x768",
+                            "1408x1056",
+                            "768x1024",
+                            "1056x1408",
+                        ],
+                        "description": "Video resolution. Choose from landscape, portrait, or square presets. Default 1152x768."
                     },
                     "duration_seconds": {
                         "type": "integer",
-                        "enum": [5, 8, 10],
-                        "description": "Video duration in seconds. Default 5."
+                        "minimum": 5,
+                        "maximum": 18,
+                        "description": "Video duration in seconds. Choose 5 to 18 seconds. Default 5."
                     }
                 },
                 "required": ["prompt"]
@@ -555,7 +573,7 @@ def poll_video_task(task_id: str):
         status_lower = status.lower()
         if status_lower in ("succeeded", "success", "finished", "done", "complete", "completed"):
             status = "completed"
-        elif status_lower in ("running", "processing", "pending", "generating", "rendering", "in_progress"):
+        elif status_lower in ("running", "processing", "pending", "submitted", "starting", "started", "waiting", "inference", "generating", "rendering", "in_progress"):
             status = "in_progress"
         elif status_lower in ("error", "failed", "failure", "cancelled", "canceled", "rejected", "timeout"):
             status = "failed"
@@ -688,7 +706,7 @@ def _do_poll_single_task(task_id: str, gen: VideoGenerator, now: float) -> dict:
         status_lower = status.lower()
         if status_lower in ("succeeded", "success", "finished", "done", "complete", "completed"):
             status = "completed"
-        elif status_lower in ("running", "processing", "pending", "generating", "rendering", "in_progress"):
+        elif status_lower in ("running", "processing", "pending", "submitted", "starting", "started", "waiting", "inference", "generating", "rendering", "in_progress"):
             status = "in_progress"
         elif status_lower in ("error", "failed", "failure", "cancelled", "canceled", "rejected", "timeout"):
             status = "failed"
@@ -1053,6 +1071,26 @@ def get_downloads():
 @app.delete("/api/download/{download_id}")
 def delete_download(download_id: int):
     db.delete_download(download_id)
+    return {"ok": True}
+
+
+@app.post("/api/download/{download_id}/retry")
+def retry_download(download_id: int):
+    download = next((item for item in db.list_downloads() if item.get("id") == download_id), None)
+    if not download:
+        raise HTTPException(404, "下载任务不存在")
+
+    save_path = download.get("save_path", "")
+    if not download.get("url") or not save_path:
+        raise HTTPException(400, "下载记录缺少链接或保存路径")
+
+    size = int(download.get("size") or 0)
+    progress = 0
+    part_path = Path(save_path).with_suffix(Path(save_path).suffix + ".part")
+    if size > 0 and part_path.exists():
+        progress = max(0, min(99, int(part_path.stat().st_size * 100 / size)))
+
+    db.update_download(download_id, status="queued", progress=progress, size=size)
     return {"ok": True}
 
 
@@ -1477,14 +1515,29 @@ async def upload_image(file: UploadFile = File(...)):
 # ─────────────── Serve Frontend ───────────────
 
 WEB_DIR = Path(__file__).parent / "web"
+WEB_DIST_DIR = WEB_DIR / "dist"
+
+
+def _frontend_index_file() -> Path:
+    dist_index = WEB_DIST_DIR / "index.html"
+    if dist_index.exists():
+        return dist_index
+    return WEB_DIR / "index.html"
+
 
 @app.get("/")
 def serve_index():
-    return FileResponse(str(WEB_DIR / "index.html"))
+    return FileResponse(str(_frontend_index_file()))
 
-# Mount static assets
-if WEB_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
+if (WEB_DIST_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(WEB_DIST_DIR / "assets")), name="frontend-assets")
+
+
+@app.get("/{full_path:path}")
+def serve_spa_fallback(full_path: str):
+    if full_path.startswith(("api/", "ws/")) or full_path in {"api", "ws"}:
+        raise HTTPException(404, "Not found")
+    return FileResponse(str(_frontend_index_file()))
 
 
 # ─────────────── Entry point ───────────────
@@ -1566,7 +1619,7 @@ def main():
     host = "127.0.0.1"
     port = _choose_port()
     url = f"http://{host}:{port}/"
-    print("\n  Agnes AI Client v3.0 — Web UI")
+    print(f"\n  Agnes AI Client v{APP_VERSION} — Web UI")
     print(f"  {url}\n")
 
     if os.environ.get("AGNESAI_OPEN_BROWSER", "0").lower() not in {"0", "false", "no"}:

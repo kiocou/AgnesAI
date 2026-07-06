@@ -22,7 +22,7 @@ hiddenimports += collect_submodules("idna")
 hiddenimports += collect_submodules("charset_normalizer")
 
 datas = [
-    ("web", "web"),
+    ("web/dist", "web/dist"),
 ]
 
 a = Analysis(

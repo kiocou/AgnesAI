@@ -120,6 +120,25 @@ class HistoryDatabase:
             return [str(item) if item is not None else "" for item in decoded]
         return []
 
+    @staticmethod
+    def _sort_timestamp(value: Any) -> float:
+        if isinstance(value, (int, float)):
+            return float(value)
+        text = str(value or "").strip()
+        if not text:
+            return 0.0
+        try:
+            timestamp = float(text)
+            if timestamp > 9_999_999_999:
+                timestamp /= 1000
+            return timestamp
+        except ValueError:
+            pass
+        try:
+            return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return 0.0
+
     def insert_image_history(
         self,
         *,
@@ -280,7 +299,13 @@ class HistoryDatabase:
                 item["result_url"] = ", ".join(url for url in result_urls if url)
                 item["local_path"] = ", ".join(path for path in local_paths if path)
             rows.append(item)
-        rows.sort(key=lambda value: value["created_at"], reverse=True)
+        rows.sort(
+            key=lambda value: (
+                self._sort_timestamp(value.get("created_at")),
+                int(value.get("id") or 0),
+            ),
+            reverse=True,
+        )
         return rows
 
     def delete_history(self, kind: str, record_id: int) -> None:
@@ -304,13 +329,16 @@ class HistoryDatabase:
                 rows = conn.execute(
                     """
                     SELECT * FROM video_history
-                    WHERE status IN ('queued', 'pending', 'in_progress', 'processing', 'running', 'generating', 'rendering')
-                    ORDER BY created_at DESC
+                    WHERE status IN (
+                        'queued', 'pending', 'submitted', 'starting', 'started', 'waiting', 'inference',
+                        'in_progress', 'processing', 'running', 'generating', 'rendering'
+                    )
+                    ORDER BY id DESC
                     """
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT * FROM video_history ORDER BY created_at DESC"
+                    "SELECT * FROM video_history ORDER BY id DESC"
                 ).fetchall()
         return [dict(row) for row in rows]
 
