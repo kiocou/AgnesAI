@@ -2,7 +2,7 @@
 
 Agnes AI Studio 是一个本地运行的 AI 创作工作台，面向图片生成、视频生成、流式 AI 对话、素材历史管理和下载队列。项目采用 FastAPI 后端 + React/Vite 前端，支持 OpenAI 兼容风格的 Agnes API 接口。
 
-当前版本：`3.1.1`
+当前版本：`3.2.0`
 
 ## 界面预览
 
