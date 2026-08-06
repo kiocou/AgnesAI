@@ -104,6 +104,204 @@
   }
 }
 
+/* ── 流式输出与思考动画 ── */
+@keyframes caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes dot-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  background: currentColor;
+  animation: caret-blink 0.9s steps(1) infinite;
+}
+
+.thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+
+.thinking-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: dot-bounce 1.2s ease-in-out infinite;
+}
+
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* ── Markdown 气泡渲染 ── */
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body p {
+  margin: 0.5em 0;
+}
+
+.markdown-body p:first-child {
+  margin-top: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  margin: 0.9em 0 0.45em;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.markdown-body h1 {
+  font-size: 1.25em;
+}
+
+.markdown-body h2 {
+  font-size: 1.15em;
+}
+
+.markdown-body h3 {
+  font-size: 1.05em;
+}
+
+.markdown-body h4 {
+  font-size: 1em;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.markdown-body ul {
+  list-style: disc;
+}
+
+.markdown-body ol {
+  list-style: decimal;
+}
+
+.markdown-body li {
+  margin: 0.25em 0;
+}
+
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: 0.2em 0;
+}
+
+.markdown-body a {
+  color: hsl(var(--primary));
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-body blockquote {
+  margin: 0.6em 0;
+  padding: 0.25em 0 0.25em 0.9em;
+  border-left: 3px solid hsl(var(--primary) / 0.45);
+  color: hsl(var(--muted-foreground));
+}
+
+.markdown-body code {
+  border-radius: 4px;
+  background: hsl(var(--muted));
+  padding: 0.1em 0.35em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+}
+
+.markdown-body pre {
+  margin: 0.6em 0;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+  background: #17181c;
+  padding: 0.8em 1em;
+}
+
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+  color: #80d6c8;
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+.markdown-body hr {
+  margin: 1em 0;
+  border: 0;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.markdown-body table {
+  margin: 0.6em 0;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.35em 0.7em;
+  text-align: left;
+}
+
+.markdown-body th {
+  background: hsl(var(--muted));
+  font-weight: 700;
+}
+
+.markdown-body input[type="checkbox"] {
+  margin-right: 0.45em;
+  accent-color: hsl(var(--primary));
+}
+
+.markdown-body img {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+}
+
 @layer base {
   :root {
     --background: 220 33% 98%;
@@ -254,6 +452,23 @@
   .motion-chat {
     animation: enter-up 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
     animation-delay: var(--delay, 0ms);
+  }
+
+  /* 工具调用处理中的底部流光条 */
+  .tool-card--running {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tool-card--running::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.75), transparent);
+    background-size: 200% 100%;
+    animation: progress-flow 1.6s linear infinite;
   }
 
   .toast-card {

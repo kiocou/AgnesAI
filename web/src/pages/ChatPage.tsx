@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, Field } from "@/components/studio/StudioPrimitives";
+import { Markdown } from "@/components/studio/Markdown";
 import { useToast } from "@/components/studio/ToastProvider";
 import {
   apiJson,
@@ -58,6 +59,19 @@ function readFileAsDataUri(file: File) {
     reader.onerror = () => reject(new Error("图片读取失败"));
     reader.readAsDataURL(file);
   });
+}
+
+// agnes-2.5-flash -> Agnes-2.5-Flash（模型显示名）
+function displayModelName(value: string): string {
+  return value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("-");
+}
+
+// 替换系统提示词中的旧模型名，跟随当前选择的模型
+function replaceSystemPromptModel(prompt: string, model: string): string {
+  return prompt.replace(/Agnes-[0-9.]+(?:-[a-z]+)+/gi, displayModelName(model));
 }
 
 function messageText(content: ChatMessage["content"]) {
@@ -144,6 +158,7 @@ export function ChatPage() {
       setCurrentConversationId(detail.id);
       setConversation(detail.messages || []);
       setModel(detail.model || "agnes-2.0-flash");
+      setSystemPrompt((prev) => replaceSystemPromptModel(prev, detail.model || "agnes-2.0-flash"));
       setUiMessages(
         (detail.messages || [])
           .filter((message) => message.role === "user" || message.role === "assistant")
@@ -421,7 +436,7 @@ export function ChatPage() {
               <Bot className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold">Agnes-2.0-Flash</h2>
+              <h2 className="text-sm font-semibold">{displayModelName(model)}</h2>
               <p className="text-xs text-muted-foreground">流式对话 / 图片理解 / 工具调用</p>
             </div>
           </div>
@@ -435,7 +450,12 @@ export function ChatPage() {
           {hasMessages ? (
             <div className="mx-auto flex max-w-4xl flex-col gap-4">
               {uiMessages.map((message, index) => (
-                <ChatBubble key={message.id} message={message} index={index} />
+                <ChatBubble
+                  key={message.id}
+                  message={message}
+                  index={index}
+                  streaming={streaming && message.role === "assistant" && index === uiMessages.length - 1}
+                />
               ))}
               <div ref={scrollRef} />
             </div>
@@ -519,12 +539,21 @@ export function ChatPage() {
           </DialogHeader>
           <div className="space-y-4">
             <Field label="模型">
-              <Select value={model} onValueChange={setModel}>
+              <Select
+                value={model}
+                onValueChange={(value) => {
+                  setModel(value);
+                  setSystemPrompt((prev) => replaceSystemPromptModel(prev, value));
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="agnes-2.0-flash">agnes-2.0-flash</SelectItem>
+                  <SelectItem value="agnes-2.5-flash">agnes-2.5-flash</SelectItem>
+                  <SelectItem value="agnes-2.5-pro">agnes-2.5-pro</SelectItem>
+                  <SelectItem value="agnes-2.5-pro-alpha">agnes-2.5-pro-alpha</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -552,7 +581,7 @@ export function ChatPage() {
   );
 }
 
-function ChatBubble({ message, index = 0 }: { message: UiMessage; index?: number }) {
+function ChatBubble({ message, index = 0, streaming = false }: { message: UiMessage; index?: number; streaming?: boolean }) {
   const isUser = message.role === "user";
   const isError = message.role === "error";
   return (
@@ -577,7 +606,10 @@ function ChatBubble({ message, index = 0 }: { message: UiMessage; index?: number
         {message.tools?.length ? (
           <div className="mb-2 space-y-2">
             {message.tools.map((tool) => (
-              <div key={tool.id} className="motion-card rounded-md border bg-muted/45 p-3">
+              <div
+                key={tool.id}
+                className={cn("motion-card rounded-md border bg-muted/45 p-3", tool.status === "running" && "tool-card--running")}
+              >
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   {tool.status === "running" ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Wand2 className="h-4 w-4 text-primary" />}
                   {toolLabel(tool.name)}
@@ -590,9 +622,28 @@ function ChatBubble({ message, index = 0 }: { message: UiMessage; index?: number
             ))}
           </div>
         ) : null}
-        <div className="whitespace-pre-wrap text-sm leading-6">
-          {message.content || (!isUser && !isError ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />思考中</span> : null)}
-        </div>
+        {message.content ? (
+          isUser || isError ? (
+            <div className="whitespace-pre-wrap text-sm leading-6">{message.content}</div>
+          ) : (
+            <div className="text-sm leading-6">
+              <Markdown content={message.content} />
+              {streaming ? <span className="stream-caret" aria-hidden="true" /> : null}
+            </div>
+          )
+        ) : !isUser && !isError ? (
+          <div className="whitespace-pre-wrap text-sm leading-6">
+            <span className="inline-flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              思考中
+              <span className="thinking-dots" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

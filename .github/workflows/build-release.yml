@@ -1,0 +1,67 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend deps & build
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: PyInstaller package
+        run: pyinstaller --clean --noconfirm AgnesAI.spec
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AgnesAI-windows
+          path: dist/AgnesAI.exe
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/AgnesAI.exe
+          generate_release_notes: true
+          name: Agnes AI Studio ${{ github.ref_name }}
+          body: |
+            ## Agnes AI Studio ${{ github.ref_name }}
+
+            ### 使用说明
+            - 下载 `AgnesAI.exe` 直接运行（Windows 免安装）
+            - 运行时会在程序目录旁自动创建配置、日志、数据库、历史和下载目录
+            - 首次启动请填入 Agnes API Key（可从 https://agnes-ai.com/ 获取）
+
+            ### 构建信息
+            - 由 GitHub Actions 自动构建（Windows x64，PyInstaller 单文件）
+            - 前端：React + Vite 生产构建已打包进 exe

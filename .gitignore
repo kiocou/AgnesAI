@@ -25,3 +25,4 @@ downloads/*
 *.swo
 *~
 *.tsbuildinfo
+.serena/

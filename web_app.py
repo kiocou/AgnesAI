@@ -35,7 +35,7 @@ from utils.path_utils import (
 from utils.logging_utils import LOGGER
 
 # ── App ──
-APP_VERSION = "3.1.1"
+APP_VERSION = "3.2.0"
 app = FastAPI(title="Agnes AI Client", version=APP_VERSION)
 app.add_middleware(
     CORSMiddleware,
